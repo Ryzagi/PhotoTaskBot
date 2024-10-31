@@ -27,7 +27,7 @@ async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), 
 
 
 @app.post(DOWNLOAD_ENDPOINT)
-async def download_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...)):
+async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...)):
     response = await db.upload_file(file_path=image_path, file_bytes=file)
     return response
 

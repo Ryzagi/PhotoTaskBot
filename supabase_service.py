@@ -55,7 +55,7 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to get last processing date", "status_code": str(e)}
 
-    def _get_users_limits(self, user_id: str) -> Dict[str, Union[dict, int]]:
+    def _get_user_limits(self, user_id: str) -> Dict[str, Union[dict, int]]:
         # Get the limits for all users
         try:
             response = self.supabase_client.table(self._users_status_table).select("daily_limit",
@@ -64,23 +64,27 @@ class SupabaseService:
             print("Limits", response.data[0])
             return {"users_limits": response.data[0], "status_code": 200}
         except Exception as e:
-            return {"message": "Failed to get users limits", "status_code": 400}
+            return {"message": f"Failed to get users limits. Error: {e}", "status_code": 400}
 
     async def proceed_processing(self, user_id: str) -> Union[bool, Dict[str, Union[str, int]]]:
         # Update the last processing date for the user with the given user_id
         try:
-            user_limits = self._get_users_limits(user_id)["users_limits"]
+            user_limits = self._get_user_limits(user_id)["users_limits"]
             if user_limits["daily_limit"] == 0:
+                print("Daily limit is exceeded")
                 if user_limits["subscription_limit"] > 0:
                     await self._decrease_subscription_limit(user_id=user_id,
                                                             subscription_limit=user_limits["subscription_limit"])
                     return True
                 else:
-                    print("No available limits")
-                    return False
-            else:
-                await self._decrease_daily_limit(user_id)
-                return True
+                    last_processing_date = await self._get_last_processing_date(user_id)
+                    if last_processing_date["last_processing_date"] == date.today().isoformat():
+                        print("Daily limit is exceeded")
+                        return False
+                    else:
+                        print("Daily limit is not exceeded")
+                        await self._decrease_daily_limit(user_id)
+                        return True
         except Exception as e:
             print("Failed to proceed processing", str(e))
             return False

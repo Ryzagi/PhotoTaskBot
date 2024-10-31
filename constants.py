@@ -10,7 +10,7 @@ TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = "You are given an image of a math problem. 
 
 
 TASK_HELPER_PROMPT_TEMPLATE_USER = """    
-Return the solutions in language of tasks for the following math problems in json format.
+Return the solutions in language of tasks for the following problems in json format.
 Responds in Markdown format.
 Output the solutions in the following JSON format:
     {
@@ -37,3 +37,5 @@ Output the solutions in the following JSON format:
         ]
     }
 """
+
+AMOUNT = 1
