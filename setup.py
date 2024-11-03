@@ -22,7 +22,7 @@ setup(
     install_requires=_load_requirements(THIS_DIR),
     entry_points={
         "console_scripts": [
-            "run_bot = app.run:run_scripts"
+            "run_bot = bot.app.run:run_scripts"
         ],
     },
 )
