@@ -5,7 +5,7 @@ from aiogram.types import Message
 from fluent.runtime import FluentLocalization
 
 
-# Это будет inner-мидлварь на сообщения
+# Middleware to add localization to the data dictionary
 class L10nMiddleware(BaseMiddleware):
     def __init__(
         self,

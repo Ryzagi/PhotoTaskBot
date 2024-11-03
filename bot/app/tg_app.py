@@ -4,19 +4,18 @@ import logging
 import os
 import re
 import sys
-from aiogram import Bot, Dispatcher, html, types
+from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
 import routers
-from constants import ADD_NEW_USER_ENDPOINT, DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT
-from fluent_loader import get_fluent_localization
-from localization import L10nMiddleware
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT
+from bot.fluent_loader import get_fluent_localization
+from bot.localization import L10nMiddleware
 
 load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")

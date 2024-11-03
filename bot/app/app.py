@@ -1,12 +1,12 @@
 import os
-from typing import Annotated, Dict
+from typing import Annotated
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
-from constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT
-from gpt_service import TaskSolverGPT
-from supabase_service import SupabaseService
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT
+from bot.gpt_service import TaskSolverGPT
+from bot.supabase_service import SupabaseService
 
 load_dotenv()
 
@@ -19,7 +19,7 @@ db = SupabaseService(supabase_url=os.environ.get("SUPABASE_URL"), supabase_key=o
 async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)):
     proceed_processing = await db.proceed_processing(user_id)
     if proceed_processing:
-        answer = await solver.solve(image_path, file)
+        answer = await solver.solve(file)
         await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
         return {"message": "Task solved", "answer": answer}
     else:

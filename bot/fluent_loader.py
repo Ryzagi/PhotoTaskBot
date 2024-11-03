@@ -5,12 +5,13 @@ from fluent.runtime import FluentLocalization, FluentResourceLoader
 
 def get_fluent_localization() -> FluentLocalization:
     """
-    Загрузка файла с локалями 'locale.ftl' из каталога 'l10n' в текущем расположении
-    :return: объект FluentLocalization
+    A helper function to create a FluentLocalization object
+    with the necessary configuration.
+    Returns:
+        A FluentLocalization object.
     """
 
-    # Проверки, чтобы убедиться
-    # в наличии правильного файла в правильном каталоге
+    # Check if the required files and directories
     locale_dir = Path(__file__).parent.joinpath("l10n")
     if not locale_dir.exists():
         error = "'l10n' directory not found"
@@ -23,7 +24,7 @@ def get_fluent_localization() -> FluentLocalization:
         error = "locale.txt file not found"
         raise FileNotFoundError(error)
 
-    # Создание необходимых объектов и возврат объекта FluentLocalization
+    # Create a FluentResourceLoader object
     l10n_loader = FluentResourceLoader(
         str(locale_file.absolute()),
     )

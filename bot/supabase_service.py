@@ -2,7 +2,7 @@ from typing import Dict, Union
 from datetime import date
 from supabase import create_client, Client
 
-from constants import SUB_FOLDER, DEFAULT_DAILY_LIMIT
+from bot.constants import SUB_FOLDER, DEFAULT_DAILY_LIMIT
 
 
 class SupabaseService:

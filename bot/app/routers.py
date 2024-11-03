@@ -1,8 +1,8 @@
 import structlog
-from aiogram import F, Router, Bot
+from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, InlineKeyboardMarkup
+from aiogram.filters import Command, CommandObject
+from aiogram.types import LabeledPrice, PreCheckoutQuery
 from fluent.runtime import FluentLocalization
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import Bot, html
@@ -11,7 +11,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from tg_app import process_photo_message
-from constants import ADD_NEW_USER_ENDPOINT, DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, AMOUNT
+from bot.constants import ADD_NEW_USER_ENDPOINT, AMOUNT
 
 router = Router()
 logger = structlog.get_logger()
