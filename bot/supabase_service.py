@@ -1,3 +1,4 @@
+import json
 from typing import Dict, Union
 from datetime import date
 from supabase import create_client, Client
@@ -11,6 +12,7 @@ class SupabaseService:
         self.bucket_name: str = "tasks"
         self._users_table = "users"
         self._users_status_table = "users_status"
+        self._task_table = "tasks"
 
         self.supabase_client.auth.sign_in_with_password({"email": user_email, "password": user_password})
 
@@ -22,7 +24,7 @@ class SupabaseService:
             self.supabase_client.storage.from_(self.bucket_name).upload(path=supabase_path, file=file_bytes)
             return {"message": "File uploaded successfully", "status_code": 200}
         except Exception as e:
-            return {"message": "Failed to upload file", "status_code": str(e)}
+            return {"message": "Failed to upload file", "status_code": 400, "error": str(e)}
 
     async def add_new_user(self, user_data: dict) -> Dict[str, Union[str, int]]:
         # Add a new user to the "users" table in Supabase, if the user does not already exist
@@ -79,7 +81,7 @@ class SupabaseService:
                 else:
                     last_processing_date = await self._get_last_processing_date(user_id)
                     if last_processing_date["last_processing_date"] == date.today().isoformat():
-                        print("Daily limit is exceeded")
+                        print("Last processing date is today. Daily limit is exceeded")
                         return False
                     else:
                         print("Daily limit is not exceeded")
@@ -124,3 +126,25 @@ class SupabaseService:
             return {"message": "Last processing image path updated", "status_code": 200}
         except Exception as e:
             return {"message": "Failed to update last processing image path", "status_code": str(e)}
+
+    async def insert_solution(self, user_id: str, file_path: str, solution: str) -> Dict[str, Union[str, int]]:
+        # Insert the solution into the "tasks" table in Supabase
+        try:
+            data_to_insert = {"user_id": user_id, "file_path": file_path, "solution": solution}
+            self.supabase_client.table(self._task_table).insert(data_to_insert).execute()
+            return {"message": "Solution inserted successfully", "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to insert solution", "status_code": str(e)}
+
+    async def get_exist_solution(self, user_id: str, file_path: str) -> Dict[str, Union[str, int]]:
+        # Get the solutions for the user with the given user_id and file_path
+        try:
+            response = self.supabase_client.table(self._task_table).select("solution").eq("user_id",
+                                                                                          user_id).eq("file_path",
+                                                                                                      file_path).execute()
+            print("Existing solution", response.data[0]["solution"])
+            return {"message": response.data, "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to get solutions", "status_code": str(e)}
+
+
