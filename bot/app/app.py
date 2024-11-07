@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT
+from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
 
@@ -14,15 +15,17 @@ app = FastAPI()
 solver = TaskSolverGPT(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 db = SupabaseService(supabase_url=os.environ.get("SUPABASE_URL"), supabase_key=os.environ.get("SUPABASE_KEY"),
                      user_email=os.environ.get("USER_EMAIL"), user_password=os.environ.get("USER_PASSWORD"))
-
+gemini_solver = GeminiSolver(google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
 @app.post(SOLVE_ENDPOINT)
 async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)):
     proceed_processing = await db.proceed_processing(user_id)
     if proceed_processing:
-        answer = await solver.solve(file)
+        #answer = await solver.solve(file)
+        answer = await gemini_solver.solve(file)
         await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
         await db.insert_solution(user_id=user_id, file_path=image_path, solution=answer)
+        print("GETTING SOLUTION", answer)
         return {"message": "Task solved", "answer": answer}
     else:
         return {"message": "Daily limit exceeded", "answer": False}
@@ -43,7 +46,7 @@ async def add_new_user(user_data: dict):
 @app.post(GET_EXIST_SOLUTION_ENDPOINT)
 async def get_exist_solution(image_path: str = Form(...), user_id: str = Form(...)):
     solution = await db.get_exist_solution(user_id=user_id, file_path=image_path)
-    return {"message": "Solution found", "answer": solution.get("message")}
+    return {"message": "Solution found", "answer": solution}
 
 
 @app.get("/")
