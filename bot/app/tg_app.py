@@ -89,11 +89,12 @@ async def get_exist_solution(path, user_id):
                 data=data
         ) as response:
             answer = await response.json()
+            print("Answer", answer)
             if response.status != 200:
                 raise Exception(f"Failed to get solution. Status code: {response.status}")
     print("Got existing solution")
-    print(answer["answer"])
-    return answer["answer"][0]["solution"]
+    print("Answer:", answer["answer"])
+    return answer["answer"]["message"][0]["solution"]
 
 
 async def send_solution_to_user(message, answer):
@@ -116,7 +117,8 @@ async def process_photo_message(message: Message):
     user_id = message.from_user.id
     await message.answer("Solving the task... Please wait!")
     # TODO: Add .file_id or unique identifier to the file name
-    file_name = f"{message.photo[-1].file_id}.png"
+    file_name = f"{message.photo[-1].file_unique_id}.png"
+    print(f"File name: {file_name}")
     path = f"{user_id}/{file_name}"
     # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
     photo_to_save = await bot.download(message.photo[-1])
