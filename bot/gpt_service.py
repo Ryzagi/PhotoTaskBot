@@ -1,6 +1,8 @@
 import base64
+import json
 import time
-
+from json import JSONDecodeError
+from typing import Dict
 
 from openai import AsyncOpenAI
 
@@ -36,8 +38,29 @@ class TaskSolverGPT:
            response_format={"type": "json_object"},
            temperature=0.0,
         )
+        if "solution" not in response.choices[0].message.content:
+            raise Exception("Failed to get solution")
         print(response.choices[0].message.content)
         end_time = time.time()
         print(f"Time elapsed: {end_time - start_time}")
         # dow = await self.download_task_photo(path, photo_io)
-        return response.choices[0].message.content
+        result = self.parse_output_json(response.choices[0].message.content)
+        return result
+
+    def parse_output_json(self, response: str, ) -> Dict:
+        """
+        Parse response from OpenAI API.
+        Args:
+            response (str): response from OpenAI API
+        Returns:
+            Dict: parsed response
+        """
+        response = response.replace("\n", "")
+        try:
+            return json.loads(response)
+        except JSONDecodeError:
+            start_idx = response.find("{")
+            end_idx = response.rfind("}")
+            # Extract the JSON-like content from the response
+            json_content = response[start_idx: end_idx + 1]
+            return json.loads(json_content)
