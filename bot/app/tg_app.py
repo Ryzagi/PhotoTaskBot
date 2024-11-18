@@ -249,7 +249,6 @@ def prepare_latex_document(solution):
 \newfontfamily\cyrillicfonttt{Courier New}
 \begin{document}
 '''
-
     latex_footer = r'''
 \end{document}
 '''
@@ -274,24 +273,31 @@ def prepare_latex_document(solution):
 
     # Add final solution, process with replace_unicode_symbols
     content += r"\textbf{Final Solution:}\\[5pt]"
-    solution_text = replace_unicode_symbols(solution["solution"])
-    solution_text = solution_text.strip()
-    # Remove surrounding $ signs if present
-    if (solution_text.startswith('$$') and solution_text.endswith('$$')) or \
-       (solution_text.startswith(r'\[') and solution_text.endswith(r'\]')):
-        # Already in display math mode, include directly
-        content += solution_text
-    elif solution_text.startswith('$') and solution_text.endswith('$'):
-        # Inline math mode, remove $ and wrap in \[ \]
-        solution_text = solution_text[1:-1]
-        content += r"\[" + solution_text + r"\]"
-    else:
-        # Not in math mode, wrap in \[ \]
-        content += r"\[" + solution_text + r"\]"
+    # Since the solution contains multiple items, format it as an enumerate list
+    # Split the solution into lines
+    solution_lines = solution["solution"].split('\n')
+    content += r"\begin{enumerate}"
+    for line in solution_lines:
+        line_processed = replace_unicode_symbols(line.strip())
+        # If the line starts with a label like "а)", "б)", extract it
+        if line_processed.startswith(('a)', 'а)', 'б)', 'в)', 'г)', 'д)', 'е)')):
+            label, rest = line_processed[:2], line_processed[2:].strip()
+            # Place the label outside of math mode
+            content += r"\item " + label + " "
+            # Check if rest is in math mode
+            if rest.startswith('$') and rest.endswith('$'):
+                rest = rest[1:-1]  # Remove dollar signs
+                content += r"$" + rest + r"$" + "\n"
+            else:
+                content += rest + "\n"
+        else:
+            content += r"\item " + line_processed + "\n"
+    content += r"\end{enumerate}"
 
     # Combine all parts
     full_latex = latex_header + content + latex_footer
     return full_latex
+
 
 
 
