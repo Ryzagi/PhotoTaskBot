@@ -66,12 +66,13 @@ class SupabaseService:
             print("Limits", response.data[0])
             return {"users_limits": response.data[0], "status_code": 200}
         except Exception as e:
-            return {"message": f"Failed to get users limits. Error: {e}", "status_code": 400}
+            return {"message": f"Failed to get users limits. Error: {e}", "status_code": 400, "users_limits": None}
 
     async def proceed_processing(self, user_id: str) -> Union[bool, Dict[str, Union[str, int]]]:
         # Update the last processing date for the user with the given user_id
         try:
             user_limits = self._get_user_limits(user_id)["users_limits"]
+            print("User limits", user_limits)
             if user_limits["daily_limit"] == 0:
                 print("Daily limit is exceeded")
                 if user_limits["subscription_limit"] > 0:
@@ -87,6 +88,11 @@ class SupabaseService:
                         print("Daily limit is not exceeded")
                         await self._decrease_daily_limit(user_id)
                         return True
+            else:
+                print("Daily limit is not exceeded")
+                # TODO Uncomment the line below
+                #await self._decrease_daily_limit(user_id)
+                return True
         except Exception as e:
             print("Failed to proceed processing", str(e))
             return False

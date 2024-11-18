@@ -4,11 +4,13 @@ import logging
 import os
 import re
 import sys
+from io import BytesIO
+import requests
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
-from aiogram.types import Message
+from aiogram.types import Message, InputFile, BufferedInputFile
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
@@ -97,18 +99,286 @@ async def get_exist_solution(path, user_id):
     return answer["answer"]["message"][0]["solution"]
 
 
-async def send_solution_to_user(message, answer):
-    print("Type", type(answer))
+def get_latex_image_url(latex_expression):
+    # Use an external service like QuickLaTeX or CodeCogs
+    base_url = 'https://latex.codecogs.com/png.latex?'
+    encoded_expression = requests.utils.quote(latex_expression)
+    url = base_url + encoded_expression
+    return url  # Returns the URL of the image
+
+
+# Function to process and send messages
+async def image_send_solution_to_user(message, answer):
     if answer:
         if isinstance(answer, str):
             answer = json.loads(answer)
+            print("Answer:", answer)
         for solution in answer["solutions"]:
-            problem = escape_markdown(solution["problem"])
-            solution_text = escape_markdown(solution["solution"])
-            steps = "\n".join([escape_markdown(step) for step in solution["steps"]])
-            message_to_send = f"*Problem:* {problem}\n*Solution:* {solution_text}\n*Steps:*\n{steps}"
+            problem = solution["problem"]
+            solution_text = solution["solution"]
+            steps = solution["steps"]
 
-            await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
+            # Send problem
+            await message.answer(f"<b>Problem:</b>\n{problem}", parse_mode=ParseMode.HTML)
+
+            # Send steps with LaTeX rendered images
+            for step in steps:
+                # Find LaTeX expressions in the step
+                latex_expressions = re.findall(r'\$(.*?)\$', step)
+                text_parts = re.split(r'\$.*?\$', step)
+
+                # Prepare message parts
+                for i, text_part in enumerate(text_parts):
+                    if text_part.strip():
+                        await message.answer(text_part, parse_mode=ParseMode.HTML)
+                    if i < len(latex_expressions):
+                        # Get LaTeX image URL
+                        image_url = get_latex_image_url(latex_expressions[i])
+                        await message.answer_photo(image_url)
+
+            # Send final solution
+            await message.answer(f"<b>Solution:</b>\n{solution_text}", parse_mode=ParseMode.HTML)
+    else:
+        await message.answer("Daily limit exceeded. Please try again tomorrow.")
+
+
+import subprocess
+import os
+from io import BytesIO
+from PIL import Image
+
+import json
+
+
+def render_latex_online(latex_code):
+    url = "https://quicklatex.com/latex3.f"
+    data = {
+        'formula': latex_code,
+        'fsize': 12,
+        'fcolor': '000000',
+        'mode': 0,
+        'out': 1,
+        'remhost': 'quicklatex.com',
+        'preamble': r'\usepackage{amsmath, amssymb}',
+    }
+    response = requests.post(url, data=data)
+    if response.status_code == 200:
+        content = response.text
+        # Extract the image URL
+        match = re.search(r'url\:(.*?)\n', content)
+        if match:
+            image_url = match.group(1)
+            # Download the image
+            image_response = requests.get(image_url)
+            return image_response.content
+        else:
+            print("Error rendering LaTeX:", content)
+            return None
+    else:
+        print("HTTP Error:", response.status_code)
+        return None
+
+
+def _prepare_latex_document(solution):
+    # LaTeX document header and footer with XeLaTeX support
+    latex_header = r'''
+\documentclass[preview]{standalone}
+\usepackage{fontspec}
+\usepackage{amsmath, amssymb}
+\usepackage{polyglossia}
+\setdefaultlanguage{russian}
+\setmainfont{Times New Roman} % Use a font that is installed
+\newfontfamily\cyrillicfont{Times New Roman}
+\newfontfamily\cyrillicfontsf{Arial}
+\newfontfamily\cyrillicfonttt{Courier New}
+\begin{document}
+'''
+
+    latex_footer = r'''
+\end{document}
+'''
+
+    # Function to escape LaTeX special characters
+    def escape_latex(s):
+        return re.sub(r'([%$&#_^{}~^\\])', r'\\\1', s)
+
+    # Combine steps into LaTeX code
+    content = ""
+
+    # Add problem statement
+    problem_text = escape_latex(solution["problem"])
+    content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]"
+
+    # Add steps
+    content += r"\textbf{Solution Steps:}\\"
+    for step in solution["steps"]:
+        step_text = escape_latex(step)
+        content += step_text + r"\\[5pt]"
+
+    # Add final solution
+    content += r"\textbf{Final Solution:}\\"
+
+    if isinstance(solution["solution"], dict):
+        content += r"\begin{align*}"
+        for key, value in solution["solution"].items():
+            key_escaped = escape_latex(str(key))
+            value_escaped = escape_latex(str(value))
+            # Wrap the key with \text{} to ensure it's treated as text
+            content += f"\\text{{{key_escaped}}} &= {value_escaped} \\\\"
+        content += r"\end{align*}"
+    else:
+        solution_text = escape_latex(solution["solution"])
+        content += r"\[" + solution_text + r"\]"
+
+    # Combine all parts
+    full_latex = latex_header + content + latex_footer
+    return full_latex
+
+
+def prepare_latex_document(solution):
+    # LaTeX document header and footer with XeLaTeX support
+    latex_header = r'''
+\documentclass[preview]{standalone}
+\usepackage{fontspec}
+\usepackage{amsmath, amssymb}
+\usepackage{polyglossia}
+\setdefaultlanguage{russian}
+\setmainfont{Times New Roman} % Use a font that is installed
+\newfontfamily\cyrillicfont{Times New Roman}
+\newfontfamily\cyrillicfontsf{Arial}
+\newfontfamily\cyrillicfonttt{Courier New}
+\begin{document}
+'''
+
+    latex_footer = r'''
+\end{document}
+'''
+
+    # Combine steps into LaTeX code
+    content = ""
+
+    # Add problem statement without escaping
+    problem_text = solution["problem"]
+    # Process with replace_unicode_symbols if needed
+    problem_text = replace_unicode_symbols(problem_text)
+    content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]"
+
+    # Add steps, process with replace_unicode_symbols
+    content += r"\textbf{Solution Steps:}\\[5pt]"
+    content += r"\begin{enumerate}"
+    for step in solution["steps"]:
+        # Replace Unicode symbols with LaTeX commands
+        step_processed = replace_unicode_symbols(step)
+        content += r"\item " + step_processed + "\n"
+    content += r"\end{enumerate}"
+
+    # Add final solution, process with replace_unicode_symbols
+    content += r"\textbf{Final Solution:}\\[5pt]"
+    solution_text = replace_unicode_symbols(solution["solution"])
+    solution_text = solution_text.strip()
+    # Remove surrounding $ signs if present
+    if (solution_text.startswith('$$') and solution_text.endswith('$$')) or \
+       (solution_text.startswith(r'\[') and solution_text.endswith(r'\]')):
+        # Already in display math mode, include directly
+        content += solution_text
+    elif solution_text.startswith('$') and solution_text.endswith('$'):
+        # Inline math mode, remove $ and wrap in \[ \]
+        solution_text = solution_text[1:-1]
+        content += r"\[" + solution_text + r"\]"
+    else:
+        # Not in math mode, wrap in \[ \]
+        content += r"\[" + solution_text + r"\]"
+
+    # Combine all parts
+    full_latex = latex_header + content + latex_footer
+    return full_latex
+
+
+
+
+def replace_unicode_symbols(text):
+    replacements = {
+        '∬': r'\iint',
+        '∫': r'\int',
+        '∑': r'\sum',
+        '√': r'\sqrt',
+        '∞': r'\infty',
+        'θ': r'\theta',
+        'π': r'\pi',
+        '≤': r'\leq',
+        '≥': r'\geq',
+        '≠': r'\neq',
+        # Add more replacements as needed
+    }
+    for unicode_char, latex_cmd in replacements.items():
+        text = text.replace(unicode_char, latex_cmd)
+    return text
+
+
+def render_latex_to_image(latex_code):
+    import subprocess
+    import os
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tex_file = os.path.join(temp_dir, 'document.tex')
+        with open(tex_file, 'w', encoding='utf-8') as f:
+            f.write(latex_code)
+
+        # Compile LaTeX document using xelatex
+        process = subprocess.Popen(
+            ['xelatex', '-interaction=nonstopmode', '-output-directory', temp_dir, 'document.tex'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+
+        if process.returncode != 0:
+            print(f"LaTeX compilation failed")
+            print(f"Return code: {process.returncode}")
+            print(f"stdout: {stdout.decode('utf-8')}")
+            print(f"stderr: {stderr.decode('utf-8')}")
+            # Print the LaTeX code for debugging
+            print("LaTeX code:")
+            print(latex_code)
+            raise Exception("LaTeX compilation failed")
+
+        pdf_file = os.path.join(temp_dir, 'document.pdf')
+        # Convert PDF to PNG using ImageMagick's `convert` or `pdftoppm`
+        # Here's an example using `pdftoppm`:
+        process = subprocess.Popen(
+            ['pdftoppm', '-png', '-singlefile', pdf_file, os.path.join(temp_dir, 'image')],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+
+        if process.returncode != 0:
+            print(f"PDF to image conversion failed")
+            print(f"Return code: {process.returncode}")
+            print(f"stdout: {stdout.decode('utf-8')}")
+            print(f"stderr: {stderr.decode('utf-8')}")
+            raise Exception("PDF to image conversion failed")
+
+        image_file = os.path.join(temp_dir, 'image.png')
+        with open(image_file, 'rb') as f:
+            image_bytes = f.read()
+
+    return image_bytes
+
+
+async def send_solution_to_user(message, answer):
+    if answer:
+        if isinstance(answer, str):
+            answer = json.loads(answer)
+            print("Answer:", answer)
+        for solution in answer["solutions"]:
+            # Prepare LaTeX document
+            latex_code = prepare_latex_document(solution)
+
+            # Render LaTeX to image
+            image_bytes = render_latex_to_image(latex_code)
+
+            # Send image via bot
+            input_file = BufferedInputFile(image_bytes, filename='solution.png')
+            await message.answer_photo(input_file)
+
     else:
         await message.answer("Daily limit exceeded. Please try again tomorrow.")
 

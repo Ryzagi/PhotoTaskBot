@@ -12,7 +12,7 @@ TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = "You are given an image of a math problem. 
 
 _TASK_HELPER_PROMPT_TEMPLATE_USER = """    
 Return the solutions in language of tasks for the following problems in json format.
-Responds in Markdown format.
+Responds in LaTex format. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
 Output the solutions in the following JSON format:
     {
         "solutions": [
@@ -42,7 +42,7 @@ Output the solutions in the following JSON format:
 TASK_HELPER_PROMPT_TEMPLATE_USER = """    
 Return the solutions in language of tasks for the following problems in json format.
 Middle dot (·) is used to product two numbers.
-Responds in Markdown format.
+Respond always in LaTeX proper syntax. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
 Output the solutions in the following JSON format:
     {
         "solutions": [

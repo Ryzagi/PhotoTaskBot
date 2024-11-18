@@ -30,7 +30,7 @@ class GeminiSolver:
         )
         end_time = time.time()
         print(f"Time elapsed: {end_time - start_time}")
-        print(result.text)
+        print("GEMINI result:", result.text)
 
         result = self.parse_output_json(result.text)
 
