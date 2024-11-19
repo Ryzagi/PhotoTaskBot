@@ -10,6 +10,9 @@ SUB_FOLDER = "/task_images/"
 DEFAULT_DAILY_LIMIT = 1
 TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = "You are given an image of a math problem. Help the user solve it."
 
+LOADING_MESSAGE = """Решаю задачу 🐼
+
+Подождите ⏳"""
 
 _TASK_HELPER_PROMPT_TEMPLATE_USER = """    
 Return the solutions in language of tasks for the following problems in json format.

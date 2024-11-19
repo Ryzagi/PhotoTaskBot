@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from fluent.runtime import FluentLocalization
 
 import routers
-from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 
@@ -444,10 +444,10 @@ async def send_solution_to_user(message, answer):
         await message.answer("Daily limit exceeded. Please try again tomorrow.")
 
 
-async def process_photo_message(message: Message, l10n: FluentLocalization):
+async def process_photo_message(message: Message):
     user_id = message.from_user.id
     await message.answer(
-        l10n.format_value("loading-message")
+        LOADING_MESSAGE
     )
 
     file_name = f"{message.photo[-1].file_unique_id}.png"
