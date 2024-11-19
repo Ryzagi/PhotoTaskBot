@@ -4,3 +4,10 @@ services:
     env_file:
       - .env
     restart: always
+
+  telegram_bot:
+    build:
+        context: .
+        dockerfile: Dockerfile
+    command: python bot/app/tg_app.py
+    restart: always
