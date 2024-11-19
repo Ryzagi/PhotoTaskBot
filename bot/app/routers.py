@@ -2,7 +2,7 @@ import structlog
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject
-from aiogram.types import LabeledPrice, PreCheckoutQuery
+from aiogram.types import LabeledPrice, PreCheckoutQuery, CallbackQuery
 from fluent.runtime import FluentLocalization
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import Bot, html
@@ -11,7 +11,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from tg_app import process_photo_message
-from bot.constants import ADD_NEW_USER_ENDPOINT, AMOUNT
+from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT
 
 router = Router()
 logger = structlog.get_logger()
@@ -41,7 +41,7 @@ async def command_start_handler(message: Message, l10n: FluentLocalization) -> N
             if response.status != 200:
                 raise Exception(f"Failed to add new user. Status code: {response.status}")
         print(answer)
-    await message.answer(l10n.format_value(f"Hello, {html.bold(message.from_user.full_name)}!"))
+    await message.answer(l10n.format_value("cmd-start"))
 
 
 @router.message(Command("donate"))
@@ -50,10 +50,9 @@ async def cmd_donate(
         command: CommandObject,
         l10n: FluentLocalization,
 ):
-
     builder = InlineKeyboardBuilder()
     builder.button(
-        text=f"Оплатить {AMOUNT} XTR",
+        text=f"Оплатить {PRICE_PER_IMAGE_IN_STARS} XTR",
         pay=True
     )
     builder.button(
@@ -62,19 +61,27 @@ async def cmd_donate(
     )
     builder.adjust(1)
 
-    prices = [LabeledPrice(label="XTR", amount=AMOUNT)]
+    prices = [LabeledPrice(label="XTR", amount=PRICE_PER_IMAGE_IN_STARS)]
     await message.answer_invoice(
         title=l10n.format_value("invoice-title"),
         description=l10n.format_value(
             "invoice-description",
-            {"starsCount": AMOUNT}
+            {"starsCount": PRICE_PER_IMAGE_IN_STARS}
         ),
         prices=prices,
         provider_token="",
-        payload=f"{AMOUNT}_stars",
+        payload=f"{PRICE_PER_IMAGE_IN_STARS}_stars",
         currency="XTR",
         reply_markup=builder.as_markup()
     )
+
+
+@router.callback_query(F.data == "cancel")
+async def cancel_purchase(callback_query: CallbackQuery):
+    # Delete the message containing the donation link
+    await callback_query.message.delete()
+    # Provide user feedback that the purchase was canceled
+    await callback_query.answer("Покупка была отменена.")
 
 
 @router.message(Command("paysupport"))
@@ -129,9 +136,9 @@ async def cmd_link(
         title=l10n.format_value("invoice-title"),
         description=l10n.format_value(
             "invoice-description",
-            {"starsCount": 2}
+            {"starsCount": PRICE_PER_IMAGE_IN_STARS}
         ),
-        prices=[LabeledPrice(label="XTR", amount=AMOUNT)],
+        prices=[LabeledPrice(label="XTR", amount=PRICE_PER_IMAGE_IN_STARS)],
         provider_token="",
         payload="demo",
         currency="XTR"
@@ -139,7 +146,7 @@ async def cmd_link(
     await message.answer(
         l10n.format_value(
             "invoice-link-text",
-            {"link": invoice_link}
+            {"link": invoice_link, "starsCount": PRICE_PER_IMAGE_IN_STARS}
         )
     )
 
@@ -169,14 +176,38 @@ async def on_successful_payment(
         from_user_id=message.from_user.id,
         user_username=message.from_user.username
     )
-    await message.answer(
-        l10n.format_value(
-            "payment-successful",
-            {"id": message.successful_payment.telegram_payment_charge_id}
-        ),
-        # Fireworks!
-        message_effect_id="5104841245755180586",
-    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    f"http://app:8000{DONATE_ENDPOINT}",
+                    json={
+                        "user_id": message.from_user.id,
+                        "username": message.from_user.username,
+                        "first_name": message.from_user.first_name,
+                        "last_name": message.from_user.last_name,
+                        "language_code": message.from_user.language_code,
+                        "is_premium": message.from_user.is_premium,
+                        "is_bot": message.from_user.is_bot,
+                    }
+            ) as response:
+                answer = await response.json()
+                if response.status != 200:
+                    raise Exception(f"Failed to donate. Status code: {response.status}")
+            print(answer)
+
+        await message.answer(
+            l10n.format_value(
+                "payment-successful",
+                {"id": message.successful_payment.telegram_payment_charge_id}
+            ),
+            # Fireworks!
+            message_effect_id="5104841245755180586",
+        )
+    except Exception as e:
+        await message.answer(
+            l10n.format_value("payment-error")
+        )
+        await logger.aexception("Failed to process payment", exc_info=e)
 
 
 @router.message()

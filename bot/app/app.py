@@ -4,7 +4,8 @@ from typing import Annotated
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
-from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
+    DONATE_ENDPOINT
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -16,6 +17,7 @@ solver = TaskSolverGPT(openai_api_key=os.environ.get("OPENAI_API_KEY"))
 db = SupabaseService(supabase_url=os.environ.get("SUPABASE_URL"), supabase_key=os.environ.get("SUPABASE_KEY"),
                      user_email=os.environ.get("USER_EMAIL"), user_password=os.environ.get("USER_PASSWORD"))
 gemini_solver = GeminiSolver(google_api_key=os.environ.get("GOOGLE_API_KEY"))
+
 
 @app.post(SOLVE_ENDPOINT)
 async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)):
@@ -54,6 +56,12 @@ async def add_new_user(user_data: dict):
 async def get_exist_solution(image_path: str = Form(...), user_id: str = Form(...)):
     solution = await db.get_exist_solution(user_id=user_id, file_path=image_path)
     return {"message": "Solution found", "answer": solution}
+
+
+@app.post(DONATE_ENDPOINT)
+async def donate(user_data: dict):
+    response = await db.add_subscription_limit(user_id=user_data["user_id"])
+    return response
 
 
 @app.get("/")

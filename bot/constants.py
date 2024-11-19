@@ -4,6 +4,7 @@ DOWNLOAD_ENDPOINT = "/tasker/api/download_image"
 SOLVE_ENDPOINT = "/tasker/api/solve_task"
 ADD_NEW_USER_ENDPOINT = "/tasker/api/add_new_user"
 GET_EXIST_SOLUTION_ENDPOINT = "/tasker/api/get_exist_solution"
+DONATE_ENDPOINT = "/tasker/api/donate"
 
 SUB_FOLDER = "/task_images/"
 DEFAULT_DAILY_LIMIT = 1
@@ -136,4 +137,4 @@ Output the solutions in the following JSON format, using "type" and "content" fi
     ]
 }
 """
-AMOUNT = 1
+PRICE_PER_IMAGE_IN_STARS = 1

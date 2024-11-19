@@ -153,4 +153,28 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to get solutions", "status_code": str(e)}
 
+    async def add_subscription_limit(self, user_id: str, subscription_limit: int = 1) -> Dict[str, Union[str, int]]:
+        # Add to the subscription limit for the user with the given user_id
+        try:
+            # Retrieve the current subscription_limit
+            current_data = self.supabase_client.table(self._users_status_table).select("subscription_limit").eq(
+                "user_id", user_id).execute()
+            print("Current data", current_data.data)
+            if not current_data or not current_data.data:
+                return {"message": "User not found or invalid data", "status_code": 404}
+
+            current_limit = current_data.data[0]["subscription_limit"]
+
+            # Calculate the new subscription limit
+            new_limit = current_limit + subscription_limit
+            print("New limit", new_limit)
+            # Update the subscription_limit in the database
+            data_to_update = {"subscription_limit": new_limit}
+            self.supabase_client.table(self._users_status_table).update(data_to_update).eq("user_id", user_id).execute()
+
+            return {"message": "Subscription updated successfully", "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to update subscription", "status_code": str(e)}
+
+
 
