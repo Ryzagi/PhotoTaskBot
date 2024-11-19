@@ -91,7 +91,7 @@ class SupabaseService:
             else:
                 print("Daily limit is not exceeded")
                 # TODO Uncomment the line below
-                #await self._decrease_daily_limit(user_id)
+                await self._decrease_daily_limit(user_id)
                 return True
         except Exception as e:
             print("Failed to proceed processing", str(e))
