@@ -13,6 +13,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, InputFile, BufferedInputFile
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
+from fluent.runtime import FluentLocalization
 
 import routers
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT
@@ -21,7 +22,7 @@ from bot.localization import L10nMiddleware
 
 load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-
+ADMIN_TG_ID = os.environ.get("ADMIN_TG_ID")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 
@@ -39,7 +40,7 @@ async def save_image(path, photo_io):
         data.add_field('file', photo_io, filename='image.jpg', content_type='image/jpeg')
 
         async with session.post(
-                f"http://localhost:8000{DOWNLOAD_ENDPOINT}",
+                f"http://app:8000{DOWNLOAD_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -67,7 +68,7 @@ async def get_solution(path, photo_io, user_id):
         data.add_field('user_id', user_id)
 
         async with session.post(
-                f"http://localhost:8000{SOLVE_ENDPOINT}",
+                f"http://app:8000{SOLVE_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -87,7 +88,7 @@ async def get_exist_solution(path, user_id):
         data.add_field('user_id', user_id)
 
         async with session.post(
-                f"http://localhost:8000{GET_EXIST_SOLUTION_ENDPOINT}",
+                f"http://app:8000{GET_EXIST_SOLUTION_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -235,64 +236,110 @@ def _prepare_latex_document(solution):
     return full_latex
 
 
+def strip_math_delimiters(s):
+    """Remove math delimiters from a string."""
+    s = s.strip()
+    if s.startswith('$$') and s.endswith('$$'):
+        return s[2:-2].strip()
+    elif s.startswith('$') and s.endswith('$'):
+        return s[1:-1].strip()
+    elif s.startswith('\\[') and s.endswith('\\]'):
+        return s[2:-2].strip()
+    elif s.startswith('\\(') and s.endswith('\\)'):
+        return s[2:-2].strip()
+    else:
+        return s
+
+
+def escape_latex_special_chars(text):
+    """Escape special LaTeX characters in text."""
+    special_chars = {
+        '&':  r'\&',
+        '%':  r'\%',
+        '$':  r'\$',
+        '#':  r'\#',
+        '_':  r'\_',           # Escape underscores
+        # '{':  r'\{',          # Do not escape '{' and '}'
+        # '}':  r'\}',
+        '~':  r'\textasciitilde{}',
+        '^':  r'\^{}',
+        # Backslashes are not escaped here
+    }
+    for char, escape_seq in special_chars.items():
+        text = text.replace(char, escape_seq)
+    return text
+
+
+
+def process_text_with_math(text):
+    """Process text content with embedded math expressions."""
+    # Regular expression to find math expressions within \( ... \) or $ ... $
+    pattern = r'(\$.*?\$|\\\(.*?\\\)|\\\[.*?\\\])'
+
+    # Split the text into math and non-math parts
+    parts = re.split(pattern, text, flags=re.DOTALL)
+
+    processed_parts = []
+    for part in parts:
+        if re.match(pattern, part, flags=re.DOTALL):
+            # It's a math expression, leave it as is
+            processed_parts.append(part)
+        else:
+            # It's normal text, escape special characters
+            processed_parts.append(escape_latex_special_chars(part))
+    return ''.join(processed_parts)
+
+
 def prepare_latex_document(solution):
+    """Prepare the full LaTeX document for a solution."""
     # LaTeX document header and footer with XeLaTeX support
     latex_header = r'''
-\documentclass[preview]{standalone}
-\usepackage{fontspec}
-\usepackage{amsmath, amssymb}
-\usepackage{polyglossia}
-\setdefaultlanguage{russian}
-\setmainfont{Times New Roman} % Use a font that is installed
-\newfontfamily\cyrillicfont{Times New Roman}
-\newfontfamily\cyrillicfontsf{Arial}
-\newfontfamily\cyrillicfonttt{Courier New}
-\begin{document}
-'''
+    \documentclass[preview]{standalone}
+    \usepackage{fontspec}
+    \usepackage{amsmath, amssymb}
+    \usepackage{polyglossia}
+    \setdefaultlanguage{russian}
+    \setmainfont{Liberation Serif} % Use Liberation fonts
+    \newfontfamily\cyrillicfont{Liberation Serif}
+    \newfontfamily\cyrillicfontsf{Liberation Sans}
+    \newfontfamily\cyrillicfonttt{Liberation Mono}
+
+    \begin{document}
+    '''
     latex_footer = r'''
 \end{document}
 '''
 
-    # Combine steps into LaTeX code
     content = ""
 
-    # Add problem statement without escaping
-    problem_text = solution["problem"]
-    # Process with replace_unicode_symbols if needed
-    problem_text = replace_unicode_symbols(problem_text)
-    content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]"
+    # Add problem statement
+    problem_text = process_text_with_math(solution["problem"])
+    content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]" + "\n"
 
-    # Add steps, process with replace_unicode_symbols
-    content += r"\textbf{Solution Steps:}\\[5pt]"
-    content += r"\begin{enumerate}"
+    # Add steps
+    content += r"\textbf{Solution Steps:}\\[5pt]" + "\n"
+    content += r"\begin{enumerate}" + "\n"
     for step in solution["steps"]:
-        # Replace Unicode symbols with LaTeX commands
-        step_processed = replace_unicode_symbols(step)
-        content += r"\item " + step_processed + "\n"
-    content += r"\end{enumerate}"
-
-    # Add final solution, process with replace_unicode_symbols
-    content += r"\textbf{Final Solution:}\\[5pt]"
-    # Since the solution contains multiple items, format it as an enumerate list
-    # Split the solution into lines
-    solution_lines = solution["solution"].split('\n')
-    content += r"\begin{enumerate}"
-    for line in solution_lines:
-        line_processed = replace_unicode_symbols(line.strip())
-        # If the line starts with a label like "а)", "б)", extract it
-        if line_processed.startswith(('a)', 'а)', 'б)', 'в)', 'г)', 'д)', 'е)')):
-            label, rest = line_processed[:2], line_processed[2:].strip()
-            # Place the label outside of math mode
-            content += r"\item " + label + " "
-            # Check if rest is in math mode
-            if rest.startswith('$') and rest.endswith('$'):
-                rest = rest[1:-1]  # Remove dollar signs
-                content += r"$" + rest + r"$" + "\n"
-            else:
-                content += rest + "\n"
+        if step["type"] == "math":
+            step_content = strip_math_delimiters(step["content"])
+            content += r"\item $" + step_content + r"$" + "\n"
         else:
-            content += r"\item " + line_processed + "\n"
-    content += r"\end{enumerate}"
+            # Include text content as-is
+            step_content = step["content"]
+            content += r"\item " + step_content + "\n"
+    content += r"\end{enumerate}" + "\n"
+
+    # Add final solution
+    content += r"\textbf{Final Solution:}\\[5pt]" + "\n"
+    content += r"\begin{enumerate}" + "\n"
+    for sol in solution["solution"]:
+        if sol["type"] == "math":
+            sol_content = strip_math_delimiters(sol["content"])
+            content += r"\item $" + sol_content + r"$" + "\n"
+        else:
+            sol_content = process_text_with_math(sol["content"])
+            content += r"\item " + sol_content + "\n"
+    content += r"\end{enumerate}" + "\n"
 
     # Combine all parts
     full_latex = latex_header + content + latex_footer
@@ -300,9 +347,8 @@ def prepare_latex_document(solution):
 
 
 
-
-
 def replace_unicode_symbols(text):
+    """Replace unicode symbols with LaTeX commands."""
     replacements = {
         '∬': r'\iint',
         '∫': r'\int',
@@ -370,29 +416,40 @@ def render_latex_to_image(latex_code):
 
 
 async def send_solution_to_user(message, answer):
+    """Send the solution to the user as an image."""
     if answer:
         if isinstance(answer, str):
+            # Parse the JSON string into a Python dictionary
             answer = json.loads(answer)
-            print("Answer:", answer)
+        # Do not escape backslashes in the JSON data
+        print("Answer:", answer)
         for solution in answer["solutions"]:
-            # Prepare LaTeX document
+            # Prepare LaTeX document using the adjusted function
             latex_code = prepare_latex_document(solution)
-
             # Render LaTeX to image
-            image_bytes = render_latex_to_image(latex_code)
+            try:
+                image_bytes = render_latex_to_image(latex_code)
+            except Exception as e:
+                # Handle LaTeX compilation errors
+                await message.answer("An error occurred while generating the solution image.")
+                print(f"LaTeX compilation error: {e}")
+                continue  # Skip to the next solution
 
             # Send image via bot
             input_file = BufferedInputFile(image_bytes, filename='solution.png')
             await message.answer_photo(input_file)
-
+            # Send to the admin
+            await bot.send_photo(chat_id=ADMIN_TG_ID, photo=input_file, caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}")
     else:
         await message.answer("Daily limit exceeded. Please try again tomorrow.")
 
 
-async def process_photo_message(message: Message):
+async def process_photo_message(message: Message, l10n: FluentLocalization):
     user_id = message.from_user.id
-    await message.answer("Solving the task... Please wait!")
-    # TODO: Add .file_id or unique identifier to the file name
+    await message.answer(
+        l10n.format_value("loading-message")
+    )
+
     file_name = f"{message.photo[-1].file_unique_id}.png"
     print(f"File name: {file_name}")
     path = f"{user_id}/{file_name}"
