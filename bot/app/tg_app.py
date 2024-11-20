@@ -32,12 +32,13 @@ def escape_markdown(text):
     return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
 
 
-async def save_image(path, photo_io):
+async def save_image(path, photo_io, user_id):
     # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
     async with aiohttp.ClientSession() as session:
         data = aiohttp.FormData()
         data.add_field('image_path', path)
         data.add_field('file', photo_io, filename='image.jpg', content_type='image/jpeg')
+        data.add_field('user_id', user_id)
 
         async with session.post(
                 f"http://app:8000{DOWNLOAD_ENDPOINT}",
@@ -456,7 +457,7 @@ async def process_photo_message(message: Message):
     # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
     photo_to_save = await bot.download(message.photo[-1])
     print(f"Photo saved in memory")
-    message_text, status_code, error = await save_image(path=path, photo_io=photo_to_save)
+    message_text, status_code, error = await save_image(path=path, photo_io=photo_to_save, user_id=user_id)
     print(f"Message: {message_text}, Status code: {status_code}")
     print(f"Error: {error}")
     if error:
