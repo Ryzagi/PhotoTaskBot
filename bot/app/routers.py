@@ -34,7 +34,7 @@ async def command_start_handler(message: Message, l10n: FluentLocalization) -> N
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-                f"http://localhost:8000{ADD_NEW_USER_ENDPOINT}",
+                f"http://app:8000{ADD_NEW_USER_ENDPOINT}",
                 json=data
         ) as response:
             answer = await response.json()

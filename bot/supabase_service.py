@@ -29,7 +29,7 @@ class SupabaseService:
     async def add_new_user(self, user_data: dict) -> Dict[str, Union[str, int]]:
         # Add a new user to the "users" table in Supabase, if the user does not already exist
         user_id = user_data.get("user_id")
-        if await self._is_exist(user_id):
+        if await self.is_exist(user_id):
             return {"message": "User already exists", "status_code": 200}
         try:
             self.supabase_client.table(self._users_table).insert(user_data).execute()
@@ -40,7 +40,7 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to add user", "status_code": str(e)}
 
-    async def _is_exist(self, user_id: str) -> bool:
+    async def is_exist(self, user_id: str) -> bool:
         # Check if the user with the given user_id exists in the Supabase table
         data = self.supabase_client.table(self._users_table).select("user_id").eq("user_id", user_id).execute()
         print(data)
