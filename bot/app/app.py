@@ -43,7 +43,7 @@ async def upload_image(file: Annotated[bytes, File(description="A file read as b
         response = await db.upload_file(file_path=image_path, file_bytes=file)
         return response
     else:
-        return {"message": "Daily limit exceeded", "answer": False}
+        return {"message": "Daily limit exceeded", "status_code": 429, "error": "Daily limit exceeded"}
 
 
 @app.post(ADD_NEW_USER_ENDPOINT)
