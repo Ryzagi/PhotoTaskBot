@@ -11,7 +11,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from tg_app import process_photo_message
-from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT
+from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK
 
 router = Router()
 logger = structlog.get_logger()
@@ -34,7 +34,7 @@ async def command_start_handler(message: Message, l10n: FluentLocalization) -> N
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-                f"http://app:8000{ADD_NEW_USER_ENDPOINT}",
+                f"http://{NETWORK}:8000{ADD_NEW_USER_ENDPOINT}",
                 json=data
         ) as response:
             answer = await response.json()
@@ -179,7 +179,7 @@ async def on_successful_payment(
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                    f"http://app:8000{DONATE_ENDPOINT}",
+                    f"http://{NETWORK}:8000{DONATE_ENDPOINT}",
                     json={
                         "user_id": message.from_user.id,
                         "username": message.from_user.username,

@@ -4,19 +4,17 @@ import logging
 import os
 import re
 import sys
-from io import BytesIO
 import requests
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
-from aiogram.types import Message, InputFile, BufferedInputFile
+from aiogram.types import Message, BufferedInputFile
 from aiohttp import ClientTimeout
 from dotenv import load_dotenv
-from fluent.runtime import FluentLocalization
 
 import routers
-from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 
@@ -32,15 +30,16 @@ def escape_markdown(text):
     return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
 
 
-async def save_image(path, photo_io):
+async def save_image(path, photo_io, user_id):
     # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
     async with aiohttp.ClientSession() as session:
         data = aiohttp.FormData()
         data.add_field('image_path', path)
         data.add_field('file', photo_io, filename='image.jpg', content_type='image/jpeg')
+        data.add_field('user_id', user_id)
 
         async with session.post(
-                f"http://app:8000{DOWNLOAD_ENDPOINT}",
+                f"http://{NETWORK}:8000{DOWNLOAD_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -48,13 +47,16 @@ async def save_image(path, photo_io):
             if "error" in answer:
                 # Step 2: Replace single quotes with double quotes for valid JSON format
                 status_code_str = answer['error'].replace("'", "\"")
+                print("Status code str", status_code_str)
                 status_code = json.loads(status_code_str)
                 print("Status code", status_code)
                 if status_code["statusCode"] != 200:
                     print("Response", response), print("Answer", answer)
                     if status_code["error"] == "Duplicate":
                         return answer["message"], answer["status_code"], answer["error"]
-                    raise Exception(f"Failed to save image. Status code: {response.status}")
+                    if status_code["error"] == "Daily limit exceeded":
+                        return answer["message"], answer["status_code"], answer["error"]
+
     return answer["message"], answer["status_code"], False
 
 
@@ -68,7 +70,7 @@ async def get_solution(path, photo_io, user_id):
         data.add_field('user_id', user_id)
 
         async with session.post(
-                f"http://app:8000{SOLVE_ENDPOINT}",
+                f"http://{NETWORK}:8000{SOLVE_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -88,7 +90,7 @@ async def get_exist_solution(path, user_id):
         data.add_field('user_id', user_id)
 
         async with session.post(
-                f"http://app:8000{GET_EXIST_SOLUTION_ENDPOINT}",
+                f"http://{NETWORK}:8000{GET_EXIST_SOLUTION_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -98,87 +100,6 @@ async def get_exist_solution(path, user_id):
     print("Got existing solution")
     print("Answer:", answer["answer"])
     return answer["answer"]["message"][0]["solution"]
-
-
-def get_latex_image_url(latex_expression):
-    # Use an external service like QuickLaTeX or CodeCogs
-    base_url = 'https://latex.codecogs.com/png.latex?'
-    encoded_expression = requests.utils.quote(latex_expression)
-    url = base_url + encoded_expression
-    return url  # Returns the URL of the image
-
-
-# Function to process and send messages
-async def image_send_solution_to_user(message, answer):
-    if answer:
-        if isinstance(answer, str):
-            answer = json.loads(answer)
-            print("Answer:", answer)
-        for solution in answer["solutions"]:
-            problem = solution["problem"]
-            solution_text = solution["solution"]
-            steps = solution["steps"]
-
-            # Send problem
-            await message.answer(f"<b>Problem:</b>\n{problem}", parse_mode=ParseMode.HTML)
-
-            # Send steps with LaTeX rendered images
-            for step in steps:
-                # Find LaTeX expressions in the step
-                latex_expressions = re.findall(r'\$(.*?)\$', step)
-                text_parts = re.split(r'\$.*?\$', step)
-
-                # Prepare message parts
-                for i, text_part in enumerate(text_parts):
-                    if text_part.strip():
-                        await message.answer(text_part, parse_mode=ParseMode.HTML)
-                    if i < len(latex_expressions):
-                        # Get LaTeX image URL
-                        image_url = get_latex_image_url(latex_expressions[i])
-                        await message.answer_photo(image_url)
-
-            # Send final solution
-            await message.answer(f"<b>Solution:</b>\n{solution_text}", parse_mode=ParseMode.HTML)
-    else:
-        await message.answer("Daily limit exceeded. Please try again tomorrow.")
-
-
-import subprocess
-import os
-from io import BytesIO
-from PIL import Image
-
-import json
-
-
-def render_latex_online(latex_code):
-    url = "https://quicklatex.com/latex3.f"
-    data = {
-        'formula': latex_code,
-        'fsize': 12,
-        'fcolor': '000000',
-        'mode': 0,
-        'out': 1,
-        'remhost': 'quicklatex.com',
-        'preamble': r'\usepackage{amsmath, amssymb}',
-    }
-    response = requests.post(url, data=data)
-    if response.status_code == 200:
-        content = response.text
-        # Extract the image URL
-        match = re.search(r'url\:(.*?)\n', content)
-        if match:
-            image_url = match.group(1)
-            # Download the image
-            image_response = requests.get(image_url)
-            return image_response.content
-        else:
-            print("Error rendering LaTeX:", content)
-            return None
-    else:
-        print("HTTP Error:", response.status_code)
-        return None
-
 
 def _prepare_latex_document(solution):
     # LaTeX document header and footer with XeLaTeX support
@@ -294,21 +215,21 @@ def prepare_latex_document(solution):
     """Prepare the full LaTeX document for a solution."""
     # LaTeX document header and footer with XeLaTeX support
     latex_header = r'''
-    \documentclass[preview]{standalone}
-    \usepackage{fontspec}
-    \usepackage{amsmath, amssymb}
-    \usepackage{polyglossia}
-    \setdefaultlanguage{russian}
-    \setmainfont{Liberation Serif} % Use Liberation fonts
-    \newfontfamily\cyrillicfont{Liberation Serif}
-    \newfontfamily\cyrillicfontsf{Liberation Sans}
-    \newfontfamily\cyrillicfonttt{Liberation Mono}
+        \documentclass[preview]{standalone}
+        \usepackage{fontspec}
+        \usepackage{amsmath, amssymb}
+        \usepackage{polyglossia}
+        \setdefaultlanguage{russian}
+        \setmainfont{Liberation Serif} % Use Liberation fonts
+        \newfontfamily\cyrillicfont{Liberation Serif}
+        \newfontfamily\cyrillicfontsf{Liberation Sans}
+        \newfontfamily\cyrillicfonttt{Liberation Mono}
 
-    \begin{document}
-    '''
+        \begin{document}
+        '''
     latex_footer = r'''
-\end{document}
-'''
+        \end{document}
+        '''
 
     content = ""
 
@@ -344,27 +265,6 @@ def prepare_latex_document(solution):
     # Combine all parts
     full_latex = latex_header + content + latex_footer
     return full_latex
-
-
-
-def replace_unicode_symbols(text):
-    """Replace unicode symbols with LaTeX commands."""
-    replacements = {
-        '∬': r'\iint',
-        '∫': r'\int',
-        '∑': r'\sum',
-        '√': r'\sqrt',
-        '∞': r'\infty',
-        'θ': r'\theta',
-        'π': r'\pi',
-        '≤': r'\leq',
-        '≥': r'\geq',
-        '≠': r'\neq',
-        # Add more replacements as needed
-    }
-    for unicode_char, latex_cmd in replacements.items():
-        text = text.replace(unicode_char, latex_cmd)
-    return text
 
 
 def render_latex_to_image(latex_code):
@@ -441,29 +341,28 @@ async def send_solution_to_user(message, answer):
             # Send to the admin
             await bot.send_photo(chat_id=ADMIN_TG_ID, photo=input_file, caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}")
     else:
-        await message.answer("Daily limit exceeded. Please try again tomorrow.")
+        await message.answer("Ежедневный лимит решений исчерпан. Попробуйте завтра снова. Или используйте команду /donate")
 
 
 async def process_photo_message(message: Message):
     user_id = message.from_user.id
-    await message.answer(
-        LOADING_MESSAGE
-    )
-
     file_name = f"{message.photo[-1].file_unique_id}.png"
     print(f"File name: {file_name}")
     path = f"{user_id}/{file_name}"
     # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
     photo_to_save = await bot.download(message.photo[-1])
     print(f"Photo saved in memory")
-    message_text, status_code, error = await save_image(path=path, photo_io=photo_to_save)
+    message_text, status_code, error = await save_image(path=path, photo_io=photo_to_save, user_id=str(user_id))
     print(f"Message: {message_text}, Status code: {status_code}")
     print(f"Error: {error}")
-    if error:
+    if status_code == 400:
         await message.answer("This task has already been solved. Here is the solution:")
         message_text = await get_exist_solution(path=path, user_id=str(user_id))
         print(f"Message text: {message_text}")
         await send_solution_to_user(message, message_text)
+        return None
+    if status_code == 429:
+        await message.answer("Daily limit exceeded. Please try again tomorrow.")
         return None
 
     print(f"Status code: {status_code}")
@@ -473,6 +372,9 @@ async def process_photo_message(message: Message):
         raise Exception(f"Failed to save image. Status code: {status_code}")
     # This is a shitty way to do it, but I don't have time to fix it
     photo_to_answer = await bot.download(message.photo[-1])
+    await message.answer(
+        LOADING_MESSAGE
+    )
     answer = await get_solution(path=path, photo_io=photo_to_answer, user_id=str(user_id))
     await send_solution_to_user(message, answer)
 

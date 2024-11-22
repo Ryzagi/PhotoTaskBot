@@ -21,29 +21,29 @@ gemini_solver = GeminiSolver(google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
 @app.post(SOLVE_ENDPOINT)
 async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)):
-    proceed_processing = await db.proceed_processing(user_id)
-    if proceed_processing:
-        try:
-            # Try using the GeminiSolver first
-            answer = await gemini_solver.solve(file)
-        except Exception as e:
-            # Log the error and fall back to TaskSolverGPT
-            print(f"Error with GeminiSolver: {e}. Falling back to TaskSolverGPT.")
-            print(type(file))
-            await file.seek(0)
-            answer = await solver.solve(file)
-        await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
-        await db.insert_solution(user_id=user_id, file_path=image_path, solution=answer)
-        print("GETTING SOLUTION", answer)
-        return {"message": "Task solved", "answer": answer}
-    else:
-        return {"message": "Daily limit exceeded", "answer": False}
+    try:
+        # Try using the GeminiSolver first
+        answer = await gemini_solver.solve(file)
+    except Exception as e:
+        # Log the error and fall back to TaskSolverGPT
+        print(f"Error with GeminiSolver: {e}. Falling back to TaskSolverGPT.")
+        print(type(file))
+        await file.seek(0)
+        answer = await solver.solve(file)
+    await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
+    await db.insert_solution(user_id=user_id, file_path=image_path, solution=answer)
+    print("GETTING SOLUTION", answer)
+    return {"message": "Task solved", "answer": answer}
 
 
 @app.post(DOWNLOAD_ENDPOINT)
-async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...)):
-    response = await db.upload_file(file_path=image_path, file_bytes=file)
-    return response
+async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...), user_id: str = Form(...)):
+    proceed_processing = await db.proceed_processing(user_id)
+    if proceed_processing:
+        response = await db.upload_file(file_path=image_path, file_bytes=file)
+        return response
+    else:
+        return {"message": "Daily limit exceeded", "status_code": 429, "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
 
 
 @app.post(ADD_NEW_USER_ENDPOINT)

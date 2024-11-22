@@ -1,10 +1,13 @@
-GPT_MODEL = "gpt-4o"
+GPT_MODEL = "gpt-4o-2024-11-20"
+GEMINI_MODEL = "gemini-1.5-pro-002"
 
 DOWNLOAD_ENDPOINT = "/tasker/api/download_image"
 SOLVE_ENDPOINT = "/tasker/api/solve_task"
 ADD_NEW_USER_ENDPOINT = "/tasker/api/add_new_user"
 GET_EXIST_SOLUTION_ENDPOINT = "/tasker/api/get_exist_solution"
 DONATE_ENDPOINT = "/tasker/api/donate"
+
+NETWORK = "app"
 
 SUB_FOLDER = "/task_images/"
 DEFAULT_DAILY_LIMIT = 1

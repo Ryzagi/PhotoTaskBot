@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-lang-european \
     texlive-lang-english \
     fonts-liberation \
+    fonts-dejavu \
     fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
