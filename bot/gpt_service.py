@@ -32,9 +32,13 @@ class TaskSolverGPT:
             model=GPT_MODEL,
             messages=[
                 {"role": "system",
-                 "content": "You are a helpful task assistant. Help me with my homework!"},
+                 "content": "You are a helpful university professor. Help me with my homework!"},
                 {"role": "user", "content": [
                     {"type": "text", "text": TASK_HELPER_PROMPT_TEMPLATE_USER},
+                    {
+                        "role": "assistant",
+                        "content": "Ready to solve the problem. Please provide the image of the problem.",
+                    },
                     {"type": "image_url", "image_url": {
                         "url": f"data:image/png;base64,{image_base64}"}
                      }

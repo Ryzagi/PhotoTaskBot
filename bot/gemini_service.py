@@ -8,14 +8,14 @@ from typing import Dict
 import google.generativeai as genai
 
 
-from bot.constants import TASK_HELPER_PROMPT_TEMPLATE_USER
+from bot.constants import TASK_HELPER_PROMPT_TEMPLATE_USER, GEMINI_MODEL
 from PIL import Image
 
 
 class GeminiSolver:
     def __init__(self, google_api_key: str):
         genai.configure(api_key=google_api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-pro-002")
+        self.model = genai.GenerativeModel(GEMINI_MODEL)
         self._prompt = TASK_HELPER_PROMPT_TEMPLATE_USER
 
     async def solve(self, photo_io):
