@@ -314,6 +314,33 @@ def render_latex_to_image(latex_code):
 
     return image_bytes
 
+def regenerate_latex(solution):
+    """Simplify LaTeX content to reduce compilation errors."""
+    latex_code = prepare_latex_document(solution)
+    # Optionally, strip problematic sections or simplify the content here.
+    # Example: Removing custom fonts or specific packages
+    simplified_latex_code = latex_code.replace(r'\usepackage{fontspec}', '').replace(r'\setmainfont{Liberation Serif}', '')
+    return simplified_latex_code
+
+def prepare_plain_text_document(solution):
+    """Prepare a plain-text version of the solution."""
+    content = "Problem:\n" + solution["problem"] + "\n\n"
+    content += "Solution Steps:\n"
+    for idx, step in enumerate(solution["steps"], start=1):
+        if step["type"] == "math":
+            step_content = strip_math_delimiters(step["content"])
+            content += f"{idx}. {step_content}\n"
+        else:
+            content += f"{idx}. {step['content']}\n"
+    content += "\nFinal Solution:\n"
+    for sol in solution["solution"]:
+        if sol["type"] == "math":
+            sol_content = strip_math_delimiters(sol["content"])
+            content += f"- {sol_content}\n"
+        else:
+            content += f"- {sol['content']}\n"
+    return content
+
 
 async def send_solution_to_user(message, answer):
     """Send the solution to the user as an image."""
@@ -330,10 +357,20 @@ async def send_solution_to_user(message, answer):
             try:
                 image_bytes = render_latex_to_image(latex_code)
             except Exception as e:
-                # Handle LaTeX compilation errors
-                await message.answer("An error occurred while generating the solution image.")
-                print(f"LaTeX compilation error: {e}")
-                continue  # Skip to the next solution
+                print(f"Initial LaTeX compilation failed: {e}")
+                latex_code = regenerate_latex(solution)
+                try:
+                    image_bytes = render_latex_to_image(latex_code)
+                except Exception as e:
+                    # Handle LaTeX compilation errors
+                    print(f"LaTeX compilation error: {e}")
+                    plain_text = prepare_plain_text_document(solution)
+                    await message.answer(
+                        f"An error occurred while generating the image. Here is the solution as plain text:\n\n{plain_text}")
+                    await bot.send_message(
+                        ADMIN_TG_ID,
+                        f"An error occurred while generating the image. Here is the solution as plain text:\n\n{plain_text}. User ID: {message.from_user.id}, nickname: {message.from_user.username}")
+                    continue  # Skip to the next solution
 
             # Send image via bot
             input_file = BufferedInputFile(image_bytes, filename='solution.png')
