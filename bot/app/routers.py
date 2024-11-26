@@ -1,3 +1,5 @@
+import os
+
 import structlog
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -100,6 +102,12 @@ async def cmd_refund(
         l10n: FluentLocalization,
 ):
     transaction_id = command.args
+    user_id = message.from_user.id
+    if user_id != os.getenv("ADMIN_ID"):
+        await message.answer(
+            l10n.format_value("refund-not-allowed")
+        )
+        return
     if transaction_id is None:
         await message.answer(
             l10n.format_value("refund-no-code-provided")
