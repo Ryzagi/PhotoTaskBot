@@ -17,6 +17,11 @@ LOADING_MESSAGE = """Решаю задачу 🐼
 
 Подождите ⏳"""
 
+DAILY_LIMIT_EXCEEDED_MESSAGE = """"Ежедневный лимит решений исчерпан. Завтра можно будет решить новую задачу. 🌟
+
+Или воспользуйтесь командой /donate для увеличения лимита решений 🚀
+"""
+
 _TASK_HELPER_PROMPT_TEMPLATE_USER = """    
 Return the solutions in language of tasks for the following problems in json format.
 Middle dot (·) is used to product two numbers.

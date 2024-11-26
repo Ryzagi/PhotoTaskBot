@@ -14,7 +14,8 @@ from aiohttp import ClientTimeout
 from dotenv import load_dotenv
 
 import routers
-from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK
+from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
+    DAILY_LIMIT_EXCEEDED_MESSAGE
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 
@@ -366,10 +367,10 @@ async def send_solution_to_user(message, answer):
                     print(f"LaTeX compilation error: {e}")
                     plain_text = prepare_plain_text_document(solution)
                     await message.answer(
-                        f"An error occurred while generating the image. Here is the solution as plain text:\n\n{plain_text}")
+                        f"Ошибка при создании изображения. Вот текстовое решение:\n\n{plain_text}")
                     await bot.send_message(
                         ADMIN_TG_ID,
-                        f"An error occurred while generating the image. Here is the solution as plain text:\n\n{plain_text}. User ID: {message.from_user.id}, nickname: {message.from_user.username}")
+                        f"Ошибка при создании изображения. Вот текстовое решение:\n\n{plain_text}. User ID: {message.from_user.id}, nickname: {message.from_user.username}")
                     continue  # Skip to the next solution
 
             # Send image via bot
@@ -378,7 +379,7 @@ async def send_solution_to_user(message, answer):
             # Send to the admin
             await bot.send_photo(chat_id=ADMIN_TG_ID, photo=input_file, caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}")
     else:
-        await message.answer("Ежедневный лимит решений исчерпан. Попробуйте завтра снова. Или используйте команду /donate")
+        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
 
 
 async def process_photo_message(message: Message):
@@ -393,13 +394,13 @@ async def process_photo_message(message: Message):
     print(f"Message: {message_text}, Status code: {status_code}")
     print(f"Error: {error}")
     if status_code == 400:
-        await message.answer("This task has already been solved. Here is the solution:")
+        await message.answer("Вы уже решали это задание. Вот решение:")
         message_text = await get_exist_solution(path=path, user_id=str(user_id))
         print(f"Message text: {message_text}")
         await send_solution_to_user(message, message_text)
         return None
     if status_code == 429:
-        await message.answer("Daily limit exceeded. Please try again tomorrow.")
+        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
         return None
 
     print(f"Status code: {status_code}")
