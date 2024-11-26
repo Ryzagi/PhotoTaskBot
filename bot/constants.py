@@ -148,4 +148,4 @@ Output the solutions in the following JSON format, using "type" and "content" fi
     ]
 }
 """
-PRICE_PER_IMAGE_IN_STARS = 1
+PRICE_PER_IMAGE_IN_STARS = 10
