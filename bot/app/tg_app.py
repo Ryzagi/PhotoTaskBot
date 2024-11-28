@@ -213,6 +213,7 @@ def prepare_latex_document(solution):
         \usepackage{fontspec}
         \usepackage{amsmath, amssymb}
         \usepackage{polyglossia}
+        \usepackage{icomma} % Include this package
         \setdefaultlanguage{russian}
         \setmainfont{Liberation Serif} % Use Liberation fonts
         \newfontfamily\cyrillicfont{Liberation Serif}
@@ -239,8 +240,8 @@ def prepare_latex_document(solution):
             step_content = strip_math_delimiters(step["content"])
             content += r"\item $" + step_content + r"$" + "\n"
         else:
-            # Include text content as-is
-            step_content = step["content"]
+            # Process text content with embedded math expressions
+            step_content = process_text_with_math(step["content"])
             content += r"\item " + step_content + "\n"
     content += r"\end{enumerate}" + "\n"
 
@@ -259,6 +260,7 @@ def prepare_latex_document(solution):
     # Combine all parts
     full_latex = latex_header + content + latex_footer
     return full_latex
+
 
 
 def render_latex_to_image(latex_code):
