@@ -4,31 +4,24 @@ import logging
 import os
 import re
 import sys
-import requests
+import routers
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
 from aiogram.types import Message, BufferedInputFile
 from aiohttp import ClientTimeout
-from dotenv import load_dotenv
-
-import routers
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
     DAILY_LIMIT_EXCEEDED_MESSAGE
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
+from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 ADMIN_TG_ID = os.environ.get("ADMIN_TG_ID")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-
-
-# Function to escape special Markdown characters
-def escape_markdown(text):
-    escape_chars = r'\_*[]()~`>#+-=|{}.!'
-    return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
 
 
 async def save_image(path, photo_io, user_id):
@@ -101,6 +94,7 @@ async def get_exist_solution(path, user_id):
     print("Got existing solution")
     print("Answer:", answer["answer"])
     return answer["answer"]["message"][0]["solution"]
+
 
 def _prepare_latex_document(solution):
     # LaTeX document header and footer with XeLaTeX support
@@ -176,21 +170,20 @@ def strip_math_delimiters(s):
 def escape_latex_special_chars(text):
     """Escape special LaTeX characters in text."""
     special_chars = {
-        '&':  r'\&',
-        '%':  r'\%',
-        '$':  r'\$',
-        '#':  r'\#',
-        '_':  r'\_',           # Escape underscores
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',  # Escape underscores
         # '{':  r'\{',          # Do not escape '{' and '}'
         # '}':  r'\}',
-        '~':  r'\textasciitilde{}',
-        '^':  r'\^{}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
         # Backslashes are not escaped here
     }
     for char, escape_seq in special_chars.items():
         text = text.replace(char, escape_seq)
     return text
-
 
 
 def process_text_with_math(text):
@@ -236,10 +229,10 @@ def prepare_latex_document(solution):
 
     # Add problem statement
     problem_text = process_text_with_math(solution["problem"])
-    content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]" + "\n"
+    content += r"\textbf{Задание:}\\ " + problem_text + r"\\[10pt]" + "\n"
 
     # Add steps
-    content += r"\textbf{Solution Steps:}\\[5pt]" + "\n"
+    content += r"\textbf{Решение:}\\[5pt]" + "\n"
     content += r"\begin{enumerate}" + "\n"
     for step in solution["steps"]:
         if step["type"] == "math":
@@ -252,7 +245,7 @@ def prepare_latex_document(solution):
     content += r"\end{enumerate}" + "\n"
 
     # Add final solution
-    content += r"\textbf{Final Solution:}\\[5pt]" + "\n"
+    content += r"\textbf{Ответ:}\\[5pt]" + "\n"
     content += r"\begin{enumerate}" + "\n"
     for sol in solution["solution"]:
         if sol["type"] == "math":
@@ -315,25 +308,28 @@ def render_latex_to_image(latex_code):
 
     return image_bytes
 
+
 def regenerate_latex(solution):
     """Simplify LaTeX content to reduce compilation errors."""
     latex_code = prepare_latex_document(solution)
     # Optionally, strip problematic sections or simplify the content here.
     # Example: Removing custom fonts or specific packages
-    simplified_latex_code = latex_code.replace(r'\usepackage{fontspec}', '').replace(r'\setmainfont{Liberation Serif}', '')
+    simplified_latex_code = latex_code.replace(r'\usepackage{fontspec}', '').replace(r'\setmainfont{Liberation Serif}',
+                                                                                     '')
     return simplified_latex_code
+
 
 def prepare_plain_text_document(solution):
     """Prepare a plain-text version of the solution."""
-    content = "Problem:\n" + solution["problem"] + "\n\n"
-    content += "Solution Steps:\n"
+    content = "Задание:\n" + solution["problem"] + "\n\n"
+    content += "Решение:\n"
     for idx, step in enumerate(solution["steps"], start=1):
         if step["type"] == "math":
             step_content = strip_math_delimiters(step["content"])
             content += f"{idx}. {step_content}\n"
         else:
             content += f"{idx}. {step['content']}\n"
-    content += "\nFinal Solution:\n"
+    content += "\nОтвет:\n"
     for sol in solution["solution"]:
         if sol["type"] == "math":
             sol_content = strip_math_delimiters(sol["content"])
@@ -377,7 +373,8 @@ async def send_solution_to_user(message, answer):
             input_file = BufferedInputFile(image_bytes, filename='solution.png')
             await message.answer_photo(input_file)
             # Send to the admin
-            await bot.send_photo(chat_id=ADMIN_TG_ID, photo=input_file, caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}")
+            await bot.send_photo(chat_id=ADMIN_TG_ID, photo=input_file,
+                                 caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}")
     else:
         await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
 
