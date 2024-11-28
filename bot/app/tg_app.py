@@ -422,7 +422,7 @@ async def main() -> None:
     dp.message.outer_middleware(L10nMiddleware(locale))
     dp.pre_checkout_query.outer_middleware(L10nMiddleware(locale))
     dp.include_router(routers.router)
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, polling_timeout=30)
 
 
 if __name__ == "__main__":
