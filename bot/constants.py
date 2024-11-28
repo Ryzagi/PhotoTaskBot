@@ -17,7 +17,7 @@ LOADING_MESSAGE = """Решаю задачу 🐼
 
 Подождите ⏳"""
 
-DAILY_LIMIT_EXCEEDED_MESSAGE = """"Ежедневный лимит решений исчерпан. Завтра можно будет решить новую задачу. 🌟
+DAILY_LIMIT_EXCEEDED_MESSAGE = """Ежедневный лимит решений исчерпан. Завтра можно будет решить новую задачу. 🌟
 
 Или воспользуйтесь командой /donate для увеличения лимита решений 🚀
 """
@@ -119,6 +119,7 @@ TASK_HELPER_PROMPT_TEMPLATE_USER = """
 Return the solutions in language of tasks for the following problems in json format.
 Middle dot (·) is used to product two numbers.
 Respond always in LaTeX proper syntax. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
+Remember, LaTeX must be correctly formatted.
 Full solution must be in language of tasks.
 Ensure that all backslashes in LaTeX commands are escaped with an additional backslash (e.g., `\\frac`, `\\times`).
 Output the solutions in the following JSON format, using "type" and "content" fields:
