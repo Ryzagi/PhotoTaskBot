@@ -103,7 +103,8 @@ async def cmd_refund(
 ):
     transaction_id = command.args
     user_id = message.from_user.id
-    if user_id != os.getenv("ADMIN_ID"):
+    print(os.getenv("ADMIN_TG_ID"))
+    if user_id != os.getenv("ADMIN_TG_ID"):
         await message.answer(
             l10n.format_value("refund-not-allowed")
         )
