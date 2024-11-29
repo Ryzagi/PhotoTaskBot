@@ -133,7 +133,7 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to update last processing image path", "status_code": str(e)}
 
-    async def insert_solution(self, user_id: str, file_path: str, solution: str) -> Dict[str, Union[str, int]]:
+    async def insert_solution(self, user_id: str, file_path: str, solution: dict) -> Dict[str, Union[str, int]]:
         # Insert the solution into the "tasks" table in Supabase
         try:
             data_to_insert = {"user_id": user_id, "file_path": file_path, "solution": solution}

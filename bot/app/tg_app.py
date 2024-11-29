@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import sys
-import textwrap
 
 import routers
 import subprocess
@@ -17,7 +16,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, BufferedInputFile
 from aiohttp import ClientTimeout
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT
+    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 from dotenv import load_dotenv
@@ -66,6 +65,24 @@ async def text_solution(text, user_id):
 
         async with session.post(
                 f"http://{NETWORK}:8000{TEXT_SOLVE_ENDPOINT}",
+                data=data
+        ) as response:
+            answer = await response.json()
+            if response.status != 200:
+                raise Exception(f"Failed to get solution. Status code: {response.status}")
+    print('Text sent to Gemini')
+    print(answer["answer"])
+    return answer["answer"]
+
+
+async def latex_to_text_solution(latex, user_id):
+    async with aiohttp.ClientSession() as session:
+        data = aiohttp.FormData()
+        data.add_field('text', latex)
+        data.add_field('user_id', user_id)
+
+        async with session.post(
+                f"http://{NETWORK}:8000{LATEX_TO_TEXT_SOLVE_ENDPOINT}",
                 data=data
         ) as response:
             answer = await response.json()
@@ -382,13 +399,11 @@ async def send_solution_to_user(message, answer):
                     print(f"LaTeX compilation error: {e}")
                     #plain_text = prepare_plain_text_document(solution)
                     print(f"So, the solution is: {answer}")
-                    plain_text = await text_solution(answer, message.from_user.id)
+                    plain_text = await latex_to_text_solution(str(answer), message.from_user.id)
                     print(f"Plain text solution: {plain_text}")
                     await message.answer(
-                        f"Ошибка при создании изображения. Вот текстовое решение:\n\n{plain_text}")
-                    await bot.send_message(
-                        ADMIN_TG_ID,
-                        f"Ошибка при создании изображения. Вот текстовое решение:\n\n{plain_text}. User ID: {message.from_user.id}, nickname: {message.from_user.username}")
+                        f"Ошибка при создании изображения. Вот текстовое решение:")
+                    await send_text_solution_to_user(message, plain_text)
                     continue  # Skip to the next solution
 
             # Send image via bot

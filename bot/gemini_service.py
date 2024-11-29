@@ -8,7 +8,7 @@ from typing import Dict
 import google.generativeai as genai
 
 from bot.constants import TASK_HELPER_PROMPT_TEMPLATE_USER, GEMINI_MODEL, TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER, \
-    LATE_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER
+    LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER
 from PIL import Image
 
 
@@ -21,7 +21,7 @@ class GeminiSolver:
                                                  system_instruction=TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER)
 
         self._latex_to_text_model = genai.GenerativeModel(model_name=GEMINI_MODEL,
-                                                          system_instruction=LATE_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER)
+                                                          system_instruction=LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER)
 
     async def solve(self, photo_io):
         start_time = time.time()
@@ -49,13 +49,13 @@ class GeminiSolver:
         Returns:
             str: generated text
         """
-        print("GEMINI TEXT user_input:", user_input)
+
         result = self._text_model.generate_content(user_input)
         print("GEMINI TEXT result:", result.text)
         parsed_result = self.parse_output_json(result.text)
         return parsed_result
 
-    async def generate_unicode_solution(self, user_input: str) -> str:
+    async def generate_unicode_solution(self, user_input: str) -> dict:
         """
         Generate solution based on the input text and prompt.
         Args:
@@ -64,7 +64,8 @@ class GeminiSolver:
             str: generated solution
         """
         result = self._latex_to_text_model.generate_content(user_input)
-        return result.text
+        parsed_result = self.parse_output_json(result.text)
+        return parsed_result
 
     def parse_output_json(self, response: str, ) -> Dict:
         """

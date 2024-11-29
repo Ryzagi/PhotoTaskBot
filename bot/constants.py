@@ -6,6 +6,8 @@ SOLVE_ENDPOINT = "/tasker/api/solve_task"
 ADD_NEW_USER_ENDPOINT = "/tasker/api/add_new_user"
 GET_EXIST_SOLUTION_ENDPOINT = "/tasker/api/get_exist_solution"
 DONATE_ENDPOINT = "/tasker/api/donate"
+TEXT_SOLVE_ENDPOINT = "/tasker/api/text_solve_task"
+LATEX_TO_TEXT_SOLVE_ENDPOINT = "/tasker/api/latex_to_text_solve_task"
 
 NETWORK = "app"
 
@@ -115,7 +117,8 @@ Output the solutions in the following JSON format, using "type" and "content" fi
     ]
 }
 """
-TASK_HELPER_PROMPT_TEMPLATE_USER = """    
+TASK_HELPER_PROMPT_TEMPLATE_USER = """You are the best professor of STEM subjects.
+You are a best professor at the university. You need to help students to solve the following problems.
 Return the solutions in language of tasks for the following problems in json format.
 Middle dot (·) is used to product two numbers.
 Respond always in LaTeX proper syntax. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
@@ -148,5 +151,66 @@ Output the solutions in the following JSON format, using "type" and "content" fi
         ...
     ]
 }
+"""
+
+TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top professor of STEM subjects.
+You are a best professor at the university. You need to help students to solve the following problems.
+Return the solutions in language of the tasks for the following problems in json format.
+Full solution must be in language of the tasks.
+Responds always must be in Markdown format.
+Output the solutions in the following JSON format:
+    {
+        "solutions": [
+            {
+                "problem": "problem_1",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_1",
+            },
+            {
+                "problem": "problem_2",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_2",
+            },
+            ...
+        ]
+    }
+"""
+
+LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """
+You are the best copywriter in the world. You need to rewrite the following Latex text in a more understandable way without using Latex.
+Return the solutions in language of solutions (in Russian) for the following problems in json format.
+Responds always must be in Markdown with unicode format.
+Output the solutions in the following JSON format:
+    {
+        "solutions": [
+            {
+                "problem": "problem_1",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_1",
+            },
+            {
+                "problem": "problem_2",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_2",
+            },
+            ...
+        ]
+    }
 """
 PRICE_PER_IMAGE_IN_STARS = 10
