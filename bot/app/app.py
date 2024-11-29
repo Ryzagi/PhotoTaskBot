@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
-    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_CURRENT_BALANCE_ENDPOINT
+    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_CURRENT_BALANCE_ENDPOINT, \
+    DAILY_LIMIT_EXCEEDED_MESSAGE
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -69,9 +70,14 @@ async def donate(user_data: dict):
 @app.post(TEXT_SOLVE_ENDPOINT)
 async def text_solve_task(text: str = Form(...), user_id: str = Form(...)):
     print("TEXT SOLVE TASK", text)
-    answer = await gemini_solver.generate_text(text)
-    await db.insert_solution(user_id=user_id, file_path="", solution=answer)
-    return {"message": "Task solved", "answer": answer}
+    processing = await db.proceed_processing(user_id)
+    if processing:
+        answer = await gemini_solver.generate_text(text)
+        await db.insert_solution(user_id=user_id, file_path="", solution=answer)
+        return {"message": "Task solved", "answer": answer}
+    else:
+        return {"message": "Daily limit exceeded", "status_code": 429, "answer": 429,
+                "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
 
 
 @app.post(LATEX_TO_TEXT_SOLVE_ENDPOINT)

@@ -68,8 +68,11 @@ async def text_solution(text, user_id):
                 data=data
         ) as response:
             answer = await response.json()
+            print("Answer", answer)
             if response.status != 200:
                 raise Exception(f"Failed to get solution. Status code: {response.status}")
+            if answer["answer"] == 429:
+                return None
     print('Text sent to Gemini')
     print(answer["answer"])
     return answer["answer"]
