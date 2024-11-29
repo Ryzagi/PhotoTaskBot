@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
-    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT
+    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_CURRENT_BALANCE_ENDPOINT
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -79,6 +79,13 @@ async def latex_to_text_solve_task(text: str = Form(...), user_id: str = Form(..
     answer = await gemini_solver.generate_unicode_solution(text)
     await db.insert_solution(user_id=user_id, file_path="", solution=answer)
     return {"message": "Task solved", "answer": answer}
+
+
+@app.post(GET_CURRENT_BALANCE_ENDPOINT)
+async def get_current_balance(user_data: dict):
+    balance = await db.get_current_balance(user_data["user_id"])
+    print("Balance", balance)
+    return balance
 
 
 @app.get("/")

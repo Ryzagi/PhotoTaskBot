@@ -176,5 +176,18 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to update subscription", "status_code": str(e)}
 
+    async def get_current_balance(self, user_id: str) -> Dict[str, Union[str, int]]:
+        # Get the current daily limit and subscription limit for the user with the given user_id
+        try:
+            response = self.supabase_client.table(self._users_status_table).select("daily_limit",
+                                                                                   "subscription_limit").eq("user_id",
+                                                                                                            user_id).execute()
+            print("Current balance", response.data)
+            last_processing_date = await self._get_last_processing_date(user_id)
+            if last_processing_date["last_processing_date"] != date.today().isoformat():
+                response.data[0]["daily_limit"] = 1
 
+            return {"message": response.data, "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to get limits", "status_code": str(e)}
 

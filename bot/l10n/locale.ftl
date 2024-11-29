@@ -55,3 +55,17 @@ invoice-link-text =
 
 loading-message =
 Решаю задачу 🐼 Подождите ⏳
+
+balance-info =
+    🚀 <b>Ежедневный лимит:</b> {$daily_limit ->
+        [one] {$daily_limit} ответ
+        [few] {$daily_limit} ответа
+       *[other] {$daily_limit} ответов
+}
+    ⭐️ <b>Донатный лимит:</b> {$donate_limit ->
+        [one] {$donate_limit} ответ
+        [few] {$donate_limit} ответа
+       *[other] {$donate_limit} ответов
+}
+
+    Чтобы увеличить ⭐️ Донатный лимит ⭐ нажми /donate

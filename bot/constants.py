@@ -8,6 +8,7 @@ GET_EXIST_SOLUTION_ENDPOINT = "/tasker/api/get_exist_solution"
 DONATE_ENDPOINT = "/tasker/api/donate"
 TEXT_SOLVE_ENDPOINT = "/tasker/api/text_solve_task"
 LATEX_TO_TEXT_SOLVE_ENDPOINT = "/tasker/api/latex_to_text_solve_task"
+GET_CURRENT_BALANCE_ENDPOINT = "/tasker/api/get_current_balance"
 
 NETWORK = "app"
 

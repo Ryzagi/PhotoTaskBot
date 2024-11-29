@@ -13,7 +13,8 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 
 from tg_app import process_photo_message, process_text_message
-from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK
+from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK, \
+    GET_CURRENT_BALANCE_ENDPOINT
 
 router = Router()
 logger = structlog.get_logger()
@@ -216,6 +217,28 @@ async def on_successful_payment(
             l10n.format_value("payment-error")
         )
         await logger.aexception("Failed to process payment", exc_info=e)
+
+
+@router.message(Command("balance"))
+async def cmd_balance(message: Message, l10n: FluentLocalization):
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                f"http://{NETWORK}:8000{GET_CURRENT_BALANCE_ENDPOINT}",
+                json={"user_id": str(message.from_user.id)}
+        ) as response:
+            answer = await response.json()
+            print("ANSWER", answer)
+            if response.status != 200:
+                raise Exception(f"Failed to get balance. Status code: {response.status}")
+    limits = answer["message"]
+    daily_limit = limits[0]['daily_limit']
+    subscription_limit = limits[0]['subscription_limit']
+    print(daily_limit, subscription_limit)
+    print(l10n.format_value("balance-info", {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)}))
+    await message.answer(
+        l10n.format_value("balance-info", {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)})
+
+    )
 
 
 @router.message()
