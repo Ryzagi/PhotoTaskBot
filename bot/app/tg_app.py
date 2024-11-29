@@ -4,7 +4,11 @@ import logging
 import os
 import re
 import sys
+import textwrap
+
 import routers
+import subprocess
+import tempfile
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -13,7 +17,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, BufferedInputFile
 from aiohttp import ClientTimeout
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE
+    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 from dotenv import load_dotenv
@@ -52,6 +56,24 @@ async def save_image(path, photo_io, user_id):
                         return answer["message"], answer["status_code"], answer["error"]
 
     return answer["message"], answer["status_code"], False
+
+
+async def text_solution(text, user_id):
+    async with aiohttp.ClientSession() as session:
+        data = aiohttp.FormData()
+        data.add_field('text', text)
+        data.add_field('user_id', user_id)
+
+        async with session.post(
+                f"http://{NETWORK}:8000{TEXT_SOLVE_ENDPOINT}",
+                data=data
+        ) as response:
+            answer = await response.json()
+            if response.status != 200:
+                raise Exception(f"Failed to get solution. Status code: {response.status}")
+    print('Text sent to Gemini')
+    print(answer["answer"])
+    return answer["answer"]
 
 
 async def get_solution(path, photo_io, user_id):
@@ -262,12 +284,7 @@ def prepare_latex_document(solution):
     return full_latex
 
 
-
 def render_latex_to_image(latex_code):
-    import subprocess
-    import os
-    import tempfile
-
     with tempfile.TemporaryDirectory() as temp_dir:
         tex_file = os.path.join(temp_dir, 'document.tex')
         with open(tex_file, 'w', encoding='utf-8') as f:
@@ -363,7 +380,10 @@ async def send_solution_to_user(message, answer):
                 except Exception as e:
                     # Handle LaTeX compilation errors
                     print(f"LaTeX compilation error: {e}")
-                    plain_text = prepare_plain_text_document(solution)
+                    #plain_text = prepare_plain_text_document(solution)
+                    print(f"So, the solution is: {answer}")
+                    plain_text = await text_solution(answer, message.from_user.id)
+                    print(f"Plain text solution: {plain_text}")
                     await message.answer(
                         f"Ошибка при создании изображения. Вот текстовое решение:\n\n{plain_text}")
                     await bot.send_message(
@@ -392,12 +412,14 @@ async def process_photo_message(message: Message):
     message_text, status_code, error = await save_image(path=path, photo_io=photo_to_save, user_id=str(user_id))
     print(f"Message: {message_text}, Status code: {status_code}")
     print(f"Error: {error}")
-    if status_code == 400:
-        await message.answer("Вы уже решали это задание. Вот решение:")
-        message_text = await get_exist_solution(path=path, user_id=str(user_id))
-        print(f"Message text: {message_text}")
-        await send_solution_to_user(message, message_text)
-        return None
+    # Check if the user has already solved this task
+    # TODO uncoment this
+    #if status_code == 400:
+    #    await message.answer("Вы уже решали это задание. Вот решение:")
+    #    message_text = await get_exist_solution(path=path, user_id=str(user_id))
+    #    print(f"Message text: {message_text}")
+    #    await send_solution_to_user(message, message_text)
+    #    return None
     if status_code == 429:
         await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
         return None
@@ -405,8 +427,8 @@ async def process_photo_message(message: Message):
     print(f"Status code: {status_code}")
 
     # Check the actual status code value
-    if status_code != 200:
-        raise Exception(f"Failed to save image. Status code: {status_code}")
+    #if status_code != 200:
+    #    raise Exception(f"Failed to save image. Status code: {status_code}")
     # This is a shitty way to do it, but I don't have time to fix it
     photo_to_answer = await bot.download(message.photo[-1])
     await message.answer(
@@ -414,6 +436,42 @@ async def process_photo_message(message: Message):
     )
     answer = await get_solution(path=path, photo_io=photo_to_answer, user_id=str(user_id))
     await send_solution_to_user(message, answer)
+
+
+def escape_markdown(text):
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(r'([{}])'.format(re.escape(escape_chars)), r'\\\1', text)
+
+
+async def send_text_solution_to_user(message, answer):
+    print(answer)
+    if answer:
+        if isinstance(answer, str):
+            # Parse the JSON string into a Python dictionary
+            answer = json.loads(answer)
+        for solution in answer["solutions"]:
+            problem = escape_markdown(solution["problem"])
+            solution_text = escape_markdown(solution["solution"])
+            steps = "\n".join([escape_markdown(step) for step in solution["steps"]])
+            message_to_send = f"*Задание:* {problem}\n*Решение:*\n{steps}\n*Ответ:* {solution_text}"
+            await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
+            await bot.send_message(ADMIN_TG_ID,
+                                   f"Text solution for the user: {message.from_user.id}, nickname: {message.from_user.username}:"),
+            await bot.send_message(
+                chat_id=ADMIN_TG_ID,
+                text=message_to_send,
+                parse_mode=ParseMode.MARKDOWN_V2
+            )
+    else:
+        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
+
+
+async def process_text_message(message: Message):
+    user_id = message.from_user.id
+    message_text = message.text
+    print(f"Message text: {message_text}")
+    answer = await text_solution(message_text, user_id)
+    await send_text_solution_to_user(message, answer)
 
 
 async def main() -> None:

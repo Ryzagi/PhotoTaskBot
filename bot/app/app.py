@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
-    DONATE_ENDPOINT
+    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -37,13 +37,15 @@ async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), 
 
 
 @app.post(DOWNLOAD_ENDPOINT)
-async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...), user_id: str = Form(...)):
+async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...),
+                       user_id: str = Form(...)):
     proceed_processing = await db.proceed_processing(user_id)
     if proceed_processing:
         response = await db.upload_file(file_path=image_path, file_bytes=file)
         return response
     else:
-        return {"message": "Daily limit exceeded", "status_code": 429, "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
+        return {"message": "Daily limit exceeded", "status_code": 429,
+                "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
 
 
 @app.post(ADD_NEW_USER_ENDPOINT)
@@ -62,6 +64,14 @@ async def get_exist_solution(image_path: str = Form(...), user_id: str = Form(..
 async def donate(user_data: dict):
     response = await db.add_subscription_limit(user_id=user_data["user_id"])
     return response
+
+
+@app.post(TEXT_SOLVE_ENDPOINT)
+async def text_solve_task(text: str = Form(...), user_id: str = Form(...)):
+    print("TEXT SOLVE TASK", text)
+    answer = await gemini_solver.generate_text(text)
+    await db.insert_solution(user_id=user_id, file_path="", solution=answer)
+    return {"message": "Task solved", "answer": answer}
 
 
 @app.get("/")

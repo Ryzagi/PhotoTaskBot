@@ -12,7 +12,7 @@ from aiogram.client.session import aiohttp
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from tg_app import process_photo_message
+from tg_app import process_photo_message, process_text_message
 from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK
 
 router = Router()
@@ -230,7 +230,7 @@ async def message_handler(message: Message) -> None:
         if message.photo:
             await process_photo_message(message)
         elif message.text:
-            await message.answer(message.text)
+            await process_text_message(message)
     except Exception as e:
         print(f"Error: {e}")
         raise Exception(f"Error: {e}")
