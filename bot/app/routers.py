@@ -12,12 +12,14 @@ from aiogram.client.session import aiohttp
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from tg_app import process_photo_message, process_text_message
+from tg_app import process_photo_message, process_text_message, notify_all_users, notify_user
 from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK, \
-    GET_CURRENT_BALANCE_ENDPOINT
+    GET_CURRENT_BALANCE_ENDPOINT, GET_ALL_USER_IDS
 
 router = Router()
 logger = structlog.get_logger()
+
+ADMIN_TG_ID = os.getenv("ADMIN_TG_ID")
 
 
 @router.message(CommandStart())
@@ -103,8 +105,8 @@ async def cmd_refund(
         l10n: FluentLocalization,
 ):
     transaction_id = command.args
-    user_id = message.from_user.id
-    if user_id != os.getenv("ADMIN_TG_ID"):
+    user_id = str(message.from_user.id)
+    if user_id != ADMIN_TG_ID:
         await message.answer(
             l10n.format_value("refund-not-allowed")
         )
@@ -239,6 +241,28 @@ async def cmd_balance(message: Message, l10n: FluentLocalization):
         l10n.format_value("balance-info", {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)})
 
     )
+
+
+@router.message(Command("notify_all"))
+async def cmd_notify_all(message: Message, l10n: FluentLocalization):
+    user_id = str(message.from_user.id)
+    if user_id != ADMIN_TG_ID:
+        await message.answer(
+            l10n.format_value("notify-not-allowed")
+        )
+        return
+    await notify_all_users(message)
+
+
+@router.message(Command("notify_user"))
+async def cmd_notify_user(message: Message, l10n: FluentLocalization):
+    user_id = str(message.from_user.id)
+    if user_id != ADMIN_TG_ID:
+        await message.answer(
+            l10n.format_value("notify-not-allowed")
+        )
+        return
+    await notify_user(message)
 
 
 @router.message()

@@ -9,6 +9,7 @@ DONATE_ENDPOINT = "/tasker/api/donate"
 TEXT_SOLVE_ENDPOINT = "/tasker/api/text_solve_task"
 LATEX_TO_TEXT_SOLVE_ENDPOINT = "/tasker/api/latex_to_text_solve_task"
 GET_CURRENT_BALANCE_ENDPOINT = "/tasker/api/get_current_balance"
+GET_ALL_USER_IDS = "/tasker/api/get_all_user_ids"
 
 NETWORK = "app"
 

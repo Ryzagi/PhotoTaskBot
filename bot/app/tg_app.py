@@ -16,7 +16,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, BufferedInputFile
 from aiohttp import ClientTimeout
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT
+    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_ALL_USER_IDS
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 from dotenv import load_dotenv
@@ -490,6 +490,38 @@ async def process_text_message(message: Message):
     print(f"Message text: {message_text}")
     answer = await text_solution(message_text, user_id)
     await send_text_solution_to_user(message, answer)
+
+
+async def notify_all_users(message: Message):
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                f"http://{NETWORK}:8000{GET_ALL_USER_IDS}",
+                json={"user_id": str(message.from_user.id)}
+        ) as response:
+            answer = await response.json()
+            print(answer)
+            text_message = message.text.split(" = ")[1]
+            print(text_message)
+            if response.status != 200:
+                raise Exception(f"Failed to get balance. Status code: {response.status}")
+            await bot.send_message(
+                ADMIN_TG_ID,
+                text_message
+            )
+            for user in answer['message']:
+                await bot.send_message(
+                    user['user_id'],
+                    text_message
+                )
+
+
+async def notify_user(message: Message):
+    user_id = message.text.split(" ")[1]
+    text_message = message.text.split(" = ")[1]
+    await bot.send_message(
+        user_id,
+        text_message
+    )
 
 
 async def main() -> None:

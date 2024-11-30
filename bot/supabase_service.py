@@ -191,3 +191,11 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to get limits", "status_code": str(e)}
 
+    async def get_all_user_ids(self) -> Dict[str, Union[str, int]]:
+        # Get all user IDs from the "users" table in Supabase
+        try:
+            response = self.supabase_client.table(self._users_table).select("user_id").execute()
+            print("All user IDs", response.data)
+            return {"message": response.data, "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to get user IDs", "status_code": str(e)}
