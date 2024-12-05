@@ -6,7 +6,7 @@ from fastapi import FastAPI, Form, UploadFile, File
 
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
     DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_CURRENT_BALANCE_ENDPOINT, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE, GET_ALL_USER_IDS
+    DAILY_LIMIT_EXCEEDED_MESSAGE, GET_ALL_USER_IDS, ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -93,9 +93,16 @@ async def get_current_balance(user_data: dict):
     print("Balance", balance)
     return balance
 
+
 @app.post(GET_ALL_USER_IDS)
 async def get_all_users():
     return await db.get_all_user_ids()
+
+
+@app.post(ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS)
+async def add_subscription_limits_for_all_users(data: dict):
+    return await db.add_subscription_limits_for_all_users(data["limit"])
+
 
 @app.get("/")
 def read_root():

@@ -10,6 +10,7 @@ TEXT_SOLVE_ENDPOINT = "/tasker/api/text_solve_task"
 LATEX_TO_TEXT_SOLVE_ENDPOINT = "/tasker/api/latex_to_text_solve_task"
 GET_CURRENT_BALANCE_ENDPOINT = "/tasker/api/get_current_balance"
 GET_ALL_USER_IDS = "/tasker/api/get_all_user_ids"
+ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = "/tasker/api/add_subscription_limits_for_all_users"
 
 NETWORK = "app"
 
@@ -122,6 +123,8 @@ Output the solutions in the following JSON format, using "type" and "content" fi
 TASK_HELPER_PROMPT_TEMPLATE_USER = """You are the best professor of STEM subjects.
 You are a best professor at the university. You need to help students to solve the following problems.
 Return the solutions in language of tasks for the following problems in json format.
+If you see that task in russian language, solution must be in russian language too.
+Or if you see that task without any language, solution must be in russian language.
 Middle dot (·) is used to product two numbers.
 Respond always in LaTeX proper syntax. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
 Remember, LaTeX must be correctly formatted.

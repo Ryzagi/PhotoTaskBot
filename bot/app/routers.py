@@ -12,7 +12,8 @@ from aiogram.client.session import aiohttp
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from tg_app import process_photo_message, process_text_message, notify_all_users, notify_user
+from tg_app import process_photo_message, process_text_message, notify_all_users, notify_user, \
+    add_subscription_limits_for_all_users
 from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK, \
     GET_CURRENT_BALANCE_ENDPOINT, GET_ALL_USER_IDS
 
@@ -263,6 +264,18 @@ async def cmd_notify_user(message: Message, l10n: FluentLocalization):
         )
         return
     await notify_user(message)
+
+
+@router.message(Command("add_subscription_limits_for_all_users"))
+async def cmd_add_subscription_limits_for_all_users(message: Message, l10n: FluentLocalization):
+    user_id = str(message.from_user.id)
+    if user_id != ADMIN_TG_ID:
+        await message.answer(
+            l10n.format_value("notify-not-allowed")
+        )
+        return
+    limit = message.text.split(" ")[1]
+    await add_subscription_limits_for_all_users(limit)
 
 
 @router.message()

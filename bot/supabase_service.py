@@ -199,3 +199,15 @@ class SupabaseService:
             return {"message": response.data, "status_code": 200}
         except Exception as e:
             return {"message": "Failed to get user IDs", "status_code": str(e)}
+
+    async def add_subscription_limits_for_all_users(self, subscription_limit: int) -> Dict[str, Union[str, int]]:
+        # Add to the subscription limit for all users
+        try:
+            # Retrieve all user IDs
+            user_ids = await self.get_all_user_ids()
+            for user_id in user_ids["message"]:
+                # Add to the subscription limit for each user
+                await self.add_subscription_limit(user_id['user_id'], int(subscription_limit))
+            return {"message": user_ids["message"], "status_code": 200}
+        except Exception as e:
+            return {"message": "Failed to update subscription for all users", "status_code": str(e)}

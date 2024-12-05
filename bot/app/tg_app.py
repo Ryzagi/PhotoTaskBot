@@ -13,10 +13,11 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
-from aiogram.types import Message, BufferedInputFile
+from aiogram.types import Message, BufferedInputFile, InputFile
 from aiohttp import ClientTimeout
 from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, LOADING_MESSAGE, NETWORK, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_ALL_USER_IDS
+    DAILY_LIMIT_EXCEEDED_MESSAGE, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_ALL_USER_IDS, \
+    ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS
 from bot.fluent_loader import get_fluent_localization
 from bot.localization import L10nMiddleware
 from dotenv import load_dotenv
@@ -421,7 +422,8 @@ async def send_solution_to_user(message, answer):
 
 async def process_photo_message(message: Message):
     user_id = message.from_user.id
-    file_name = f"{message.photo[-1].file_unique_id}.png"
+    # TODO change to .file_unique_id when it needs to be unique
+    file_name = f"{message.photo[-1].file_id}.png"
     print(f"File name: {file_name}")
     path = f"{user_id}/{file_name}"
     # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
@@ -488,6 +490,9 @@ async def process_text_message(message: Message):
     user_id = message.from_user.id
     message_text = message.text
     print(f"Message text: {message_text}")
+    await message.answer(
+        LOADING_MESSAGE
+    )
     answer = await text_solution(message_text, user_id)
     await send_text_solution_to_user(message, answer)
 
@@ -513,15 +518,49 @@ async def notify_all_users(message: Message):
                     user['user_id'],
                     text_message
                 )
+                await asyncio.sleep(0.2)
 
 
 async def notify_user(message: Message):
-    user_id = message.text.split(" ")[1]
-    text_message = message.text.split(" = ")[1]
-    await bot.send_message(
-        user_id,
-        text_message
-    )
+    if message.photo:
+        print("Message", message)
+        text = message.caption.split("/notify_user")[1]
+        user_id = text.split(" ")[1]
+        text_message = message.caption.split(" = ")[1]
+        await bot.send_photo(
+            chat_id=user_id,
+            photo=message.photo[-1].file_id,
+            caption=text_message
+        )
+    else:
+        user_id = message.text.split(" ")[1]
+        text_message = message.text.split(" = ")[1]
+        await bot.send_message(
+            user_id,
+            text_message
+        )
+
+
+async def add_subscription_limits_for_all_users(limit):
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                f"http://{NETWORK}:8000{ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS}",
+                json={"user_id": ADMIN_TG_ID, "limit": limit}
+        ) as response:
+            answer = await response.json()
+            print(answer)
+            if response.status != 200:
+                raise Exception(f"Failed to get balance. Status code: {response.status}")
+            for user in answer['message']:
+                await bot.send_message(
+                    user['user_id'],
+                    "Бесплатно добавлены донатные решения! Проверь свой баланс /balance"
+                )
+                await bot.send_message(
+                    ADMIN_TG_ID,
+                    f"Лимит решений для пользователя {user['user_id']} увеличен!"
+                )
+                await asyncio.sleep(0.2)
 
 
 async def main() -> None:
