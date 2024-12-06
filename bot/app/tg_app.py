@@ -9,7 +9,7 @@ import routers
 import subprocess
 import tempfile
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, exceptions
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
@@ -514,10 +514,19 @@ async def notify_all_users(message: Message):
                 text_message
             )
             for user in answer['message']:
-                await bot.send_message(
-                    user['user_id'],
-                    text_message
-                )
+                try:
+                    await bot.send_message(
+                        user['user_id'],
+                        text_message
+                    )
+                    await bot.send_message(
+                        ADMIN_TG_ID,
+                        f"Message sent to user {user['user_id']}"
+                    )
+                except exceptions.TelegramForbiddenError:
+                    print(f"User {user['user_id']} has blocked the bot. Skipping.")
+                except exceptions.TelegramAPIError as e:
+                    print(f"Failed to send message to {user['user_id']} due to Telegram API error: {e}")
                 await asyncio.sleep(0.2)
 
 
@@ -552,14 +561,19 @@ async def add_subscription_limits_for_all_users(limit):
             if response.status != 200:
                 raise Exception(f"Failed to get balance. Status code: {response.status}")
             for user in answer['message']:
-                await bot.send_message(
-                    user['user_id'],
-                    "Бесплатно добавлены донатные решения! Проверь свой баланс /balance"
-                )
-                await bot.send_message(
-                    ADMIN_TG_ID,
-                    f"Лимит решений для пользователя {user['user_id']} увеличен!"
-                )
+                try:
+                    await bot.send_message(
+                        user['user_id'],
+                        "Бесплатно добавлены донатные решения! Проверь свой баланс /balance"
+                    )
+                    await bot.send_message(
+                        ADMIN_TG_ID,
+                        f"Лимит решений для пользователя {user['user_id']} увеличен!"
+                    )
+                except exceptions.TelegramForbiddenError:
+                    print(f"User {user['user_id']} has blocked the bot. Skipping.")
+                except exceptions.TelegramAPIError as e:
+                    print(f"Failed to send message to {user['user_id']} due to Telegram API error: {e}")
                 await asyncio.sleep(0.2)
 
 
