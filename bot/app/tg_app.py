@@ -403,7 +403,7 @@ async def send_solution_to_user(message, answer):
                     print(f"LaTeX compilation error: {e}")
                     #plain_text = prepare_plain_text_document(solution)
                     print(f"So, the solution is: {answer}")
-                    plain_text = await latex_to_text_solution(str(answer), message.from_user.id)
+                    plain_text = await latex_to_text_solution(str(solution), message.from_user.id)
                     print(f"Plain text solution: {plain_text}")
                     await message.answer(
                         f"Ошибка при создании изображения. Вот текстовое решение:")
@@ -422,8 +422,9 @@ async def send_solution_to_user(message, answer):
 
 async def process_photo_message(message: Message):
     user_id = message.from_user.id
+    time = message.date
     # TODO change to .file_unique_id when it needs to be unique
-    file_name = f"{message.photo[-1].file_id}.png"
+    file_name = f"{message.photo[-1].file_id}_{time}.png"
     print(f"File name: {file_name}")
     path = f"{user_id}/{file_name}"
     # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
