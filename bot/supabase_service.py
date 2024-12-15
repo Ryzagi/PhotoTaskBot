@@ -71,7 +71,8 @@ class SupabaseService:
     async def proceed_processing(self, user_id: str) -> Union[bool, Dict[str, Union[str, int]]]:
         # Update the last processing date for the user with the given user_id
         try:
-            user_limits = self._get_user_limits(user_id)["users_limits"]
+            balance = await self.get_current_balance(user_id)
+            user_limits = balance["message"][0]
             print("User limits", user_limits)
             if user_limits["daily_limit"] == 0:
                 print("Daily limit is exceeded")
@@ -99,7 +100,9 @@ class SupabaseService:
 
     async def _decrease_daily_limit(self, user_id: str) -> Dict[str, Union[str, int]]:
         # Decrease the daily limit for the user with the given user_id
-        daily_limit = DEFAULT_DAILY_LIMIT - 1
+        balance = await self.get_current_balance(user_id)
+        user_limits = balance["message"][0]
+        daily_limit = user_limits["daily_limit"] - 1
         try:
             today = date.today().isoformat()
             print(today)
@@ -176,7 +179,7 @@ class SupabaseService:
         except Exception as e:
             return {"message": "Failed to update subscription", "status_code": str(e)}
 
-    async def get_current_balance(self, user_id: str) -> Dict[str, Union[str, int]]:
+    async def get_current_balance(self, user_id: str) -> Dict:
         # Get the current daily limit and subscription limit for the user with the given user_id
         try:
             response = self.supabase_client.table(self._users_status_table).select("daily_limit",
@@ -185,7 +188,7 @@ class SupabaseService:
             print("Current balance", response.data)
             last_processing_date = await self._get_last_processing_date(user_id)
             if last_processing_date["last_processing_date"] != date.today().isoformat():
-                response.data[0]["daily_limit"] = 1
+                response.data[0]["daily_limit"] = DEFAULT_DAILY_LIMIT
 
             return {"message": response.data, "status_code": 200}
         except Exception as e:
