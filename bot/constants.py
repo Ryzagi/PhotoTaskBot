@@ -15,7 +15,9 @@ ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = "/tasker/api/add_subscription_limits_for
 NETWORK = "app"
 
 SUB_FOLDER = "/task_images/"
-DEFAULT_DAILY_LIMIT = 1
+
+DEFAULT_DAILY_LIMIT = 3
+
 TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = "You are given an image of a math problem. Help the user solve it."
 
 LOADING_MESSAGE = """Решаю задачу 🐼
