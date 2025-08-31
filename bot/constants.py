@@ -1,5 +1,5 @@
-GPT_MODEL = "gpt-4o-2024-11-20"
-GEMINI_MODEL = "gemini-2.5-flash-preview-04-17"
+GPT_MODEL = "gpt-4o"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 DOWNLOAD_ENDPOINT = "/tasker/api/download_image"
 SOLVE_ENDPOINT = "/tasker/api/solve_task"
@@ -233,4 +233,4 @@ Output the solutions in the following JSON format:
         ]
     }
 """
-PRICE_PER_IMAGE_IN_STARS = 10
+PRICE_PER_IMAGE_IN_STARS = 5
