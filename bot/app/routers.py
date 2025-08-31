@@ -76,7 +76,7 @@ async def cmd_donate(
     prices = [LabeledPrice(label="XTR", amount=PRICE_PER_IMAGE_IN_STARS)]
     await message.answer_invoice(
         title=l10n.format_value("invoice-title"),
-        description="sd здезв",#l10n.format_value("invoice-description", {"starsCount": PRICE_PER_IMAGE_IN_STARS}),
+        description=l10n.format_value("invoice-description", {"starsCount": PRICE_PER_IMAGE_IN_STARS}),
         prices=prices,
         provider_token="",
         payload=f"{PRICE_PER_IMAGE_IN_STARS}_stars",
