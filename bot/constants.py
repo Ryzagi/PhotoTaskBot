@@ -1,5 +1,5 @@
 GPT_MODEL = "gpt-4o-2024-11-20"
-GEMINI_MODEL = "gemini-1.5-pro-002"
+GEMINI_MODEL = "gemini-2.5-flash-preview-04-17"
 
 DOWNLOAD_ENDPOINT = "/tasker/api/download_image"
 SOLVE_ENDPOINT = "/tasker/api/solve_task"
@@ -10,7 +10,9 @@ TEXT_SOLVE_ENDPOINT = "/tasker/api/text_solve_task"
 LATEX_TO_TEXT_SOLVE_ENDPOINT = "/tasker/api/latex_to_text_solve_task"
 GET_CURRENT_BALANCE_ENDPOINT = "/tasker/api/get_current_balance"
 GET_ALL_USER_IDS = "/tasker/api/get_all_user_ids"
-ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = "/tasker/api/add_subscription_limits_for_all_users"
+ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = (
+    "/tasker/api/add_subscription_limits_for_all_users"
+)
 
 NETWORK = "app"
 
@@ -18,7 +20,9 @@ SUB_FOLDER = "/task_images/"
 
 DEFAULT_DAILY_LIMIT = 3
 
-TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = "You are given an image of a math problem. Help the user solve it."
+TASK_HELPER_PROMPT_TEMPLATE_SYSTEM = (
+    "You are given an image of a math problem. Help the user solve it."
+)
 
 LOADING_MESSAGE = """Решаю задачу 🐼
 
@@ -131,6 +135,15 @@ Middle dot (·) is used to product two numbers.
 Respond always in LaTeX proper syntax. Avoid to use ⅔ or ¾, use 2/3 or 3/4 instead.
 Remember, LaTeX must be correctly formatted.
 Full solution must be in language of tasks.
+
+Math Presentation Style:
+
+1. Default to Rendered LaTeX: Always use LaTeX for math. Use double dollar signs for display equations (equations intended to be on their own separate lines) and single dollar signs for inline math within text. Ensure math renders properly and not as raw code. Use the backslash-mathbf command for vectors where appropriate (e.g., for r).
+Formatting Display Math Within Lists: When a display math equation (using double dollar signs) belongs to a list item (like a numbered or bullet point), follow this specific structure: First, write the text part of the list item. Then, start the display math equation on a completely new line immediately following that text. Critically, this new line containing the display math equation MUST begin at the absolute start of the line, with ZERO leading spaces or any indentation. Explicitly, do NOT add spaces or tabs before the opening double dollar sign to visually align it with the list item's text. This strict zero-indentation rule for display math lines within lists is essential for ensuring correct rendering.
+2. Goal: Prioritize clean, readable, professional presentation resembling scientific documents. Ensure clear separation between math notation, text explanations.
+3. Inline vs. Display for Brevity: Prefer inline math (`$ ... $`) for short equations fitting naturally in text to improve readability and flow. Reserve display math (`$$ ... $$`) for longer/complex equations or those requiring standalone emphasis.
+4. Spacing After Display Math: For standard paragraph separation after display math (`$$...$$`), ensure exactly one blank line (two newlines in Markdown source) exists between the closing `$$` line and the subsequent paragraph text.
+
 Ensure that all backslashes in LaTeX commands are escaped with an additional backslash (e.g., `\\frac`, `\\times`).
 Output the solutions in the following JSON format, using "type" and "content" fields:
     {

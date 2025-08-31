@@ -4,9 +4,19 @@ from typing import Annotated
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, UploadFile, File
 
-from bot.constants import DOWNLOAD_ENDPOINT, SOLVE_ENDPOINT, ADD_NEW_USER_ENDPOINT, GET_EXIST_SOLUTION_ENDPOINT, \
-    DONATE_ENDPOINT, TEXT_SOLVE_ENDPOINT, LATEX_TO_TEXT_SOLVE_ENDPOINT, GET_CURRENT_BALANCE_ENDPOINT, \
-    DAILY_LIMIT_EXCEEDED_MESSAGE, GET_ALL_USER_IDS, ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS
+from bot.constants import (
+    DOWNLOAD_ENDPOINT,
+    SOLVE_ENDPOINT,
+    ADD_NEW_USER_ENDPOINT,
+    GET_EXIST_SOLUTION_ENDPOINT,
+    DONATE_ENDPOINT,
+    TEXT_SOLVE_ENDPOINT,
+    LATEX_TO_TEXT_SOLVE_ENDPOINT,
+    GET_CURRENT_BALANCE_ENDPOINT,
+    DAILY_LIMIT_EXCEEDED_MESSAGE,
+    GET_ALL_USER_IDS,
+    ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS,
+)
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT
 from bot.supabase_service import SupabaseService
@@ -15,13 +25,19 @@ load_dotenv()
 
 app = FastAPI()
 solver = TaskSolverGPT(openai_api_key=os.environ.get("OPENAI_API_KEY"))
-db = SupabaseService(supabase_url=os.environ.get("SUPABASE_URL"), supabase_key=os.environ.get("SUPABASE_KEY"),
-                     user_email=os.environ.get("USER_EMAIL"), user_password=os.environ.get("USER_PASSWORD"))
+db = SupabaseService(
+    supabase_url=os.environ.get("SUPABASE_URL"),
+    supabase_key=os.environ.get("SUPABASE_KEY"),
+    user_email=os.environ.get("USER_EMAIL"),
+    user_password=os.environ.get("USER_PASSWORD"),
+)
 gemini_solver = GeminiSolver(google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
 
 @app.post(SOLVE_ENDPOINT)
-async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)):
+async def solve_task(
+    image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)
+):
     try:
         # Try using the GeminiSolver first
         answer = await gemini_solver.solve(file)
@@ -38,15 +54,27 @@ async def solve_task(image_path: str = Form(...), file: UploadFile = File(...), 
 
 
 @app.post(DOWNLOAD_ENDPOINT)
-async def upload_image(file: Annotated[bytes, File(description="A file read as bytes")], image_path: str = Form(...),
-                       user_id: str = Form(...)):
+async def upload_image(
+    file: Annotated[bytes, File(description="A file read as bytes")],
+    image_path: str = Form(...),
+    user_id: str = Form(...),
+):
     proceed_processing = await db.proceed_processing(user_id)
     if proceed_processing:
         response = await db.upload_file(file_path=image_path, file_bytes=file)
         return response
     else:
-        return {"message": "Daily limit exceeded", "status_code": 429,
-                "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
+        return {
+            "message": "Daily limit exceeded",
+            "status_code": 429,
+            "error": str(
+                {
+                    "message": "Daily limit exceeded",
+                    "statusCode": 429,
+                    "error": "Daily limit exceeded",
+                }
+            ),
+        }
 
 
 @app.post(ADD_NEW_USER_ENDPOINT)
@@ -76,8 +104,18 @@ async def text_solve_task(text: str = Form(...), user_id: str = Form(...)):
         await db.insert_solution(user_id=user_id, file_path="", solution=answer)
         return {"message": "Task solved", "answer": answer}
     else:
-        return {"message": "Daily limit exceeded", "status_code": 429, "answer": 429,
-                "error": str({"message": "Daily limit exceeded", "statusCode": 429, "error": "Daily limit exceeded"})}
+        return {
+            "message": "Daily limit exceeded",
+            "status_code": 429,
+            "answer": 429,
+            "error": str(
+                {
+                    "message": "Daily limit exceeded",
+                    "statusCode": 429,
+                    "error": "Daily limit exceeded",
+                }
+            ),
+        }
 
 
 @app.post(LATEX_TO_TEXT_SOLVE_ENDPOINT)

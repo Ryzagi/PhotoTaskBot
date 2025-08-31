@@ -21,28 +21,36 @@ class TaskSolverGPT:
 
     async def _encode_image(self, image_path):
         with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+            return base64.b64encode(image_file.read()).decode("utf-8")
 
     async def solve(self, photo_io):
         start_time = time.time()
         print(type(photo_io))
         image_base64 = await self.encode_image(photo_io)
-        print('Image started')
+        print("Image started")
         response = await self.client.chat.completions.create(
             model=GPT_MODEL,
             messages=[
-                {"role": "system",
-                 "content": "You are a helpful university professor. Help me with my homework!"},
-                {"role": "user", "content": [
-                    {"type": "text", "text": TASK_HELPER_PROMPT_TEMPLATE_USER},
-                    {
-                        "role": "assistant",
-                        "content": "Ready to solve the problem. Please provide the image of the problem.",
-                    },
-                    {"type": "image_url", "image_url": {
-                        "url": f"data:image/png;base64,{image_base64}"}
-                     }
-                ]}
+                {
+                    "role": "system",
+                    "content": "You are a helpful university professor. Help me with my homework!",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": TASK_HELPER_PROMPT_TEMPLATE_USER},
+                        {
+                            "role": "assistant",
+                            "content": "Ready to solve the problem. Please provide the image of the problem.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_base64}"
+                            },
+                        },
+                    ],
+                },
             ],
             response_format={"type": "json_object"},
             temperature=0.0,
@@ -56,7 +64,10 @@ class TaskSolverGPT:
         result = self.parse_output_json(response.choices[0].message.content)
         return result
 
-    def parse_output_json(self, response: str, ) -> Dict:
+    def parse_output_json(
+        self,
+        response: str,
+    ) -> Dict:
         """
         Parse response from OpenAI API.
         Args:
@@ -71,5 +82,5 @@ class TaskSolverGPT:
             start_idx = response.find("{")
             end_idx = response.rfind("}")
             # Extract the JSON-like content from the response
-            json_content = response[start_idx: end_idx + 1]
+            json_content = response[start_idx : end_idx + 1]
             return json.loads(json_content)

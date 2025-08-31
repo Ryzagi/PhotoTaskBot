@@ -4,15 +4,19 @@ import os
 
 def run_scripts():
     # Define paths to the scripts
-    app_script = os.path.join(os.path.dirname(__file__), 'app.py')
-    tg_app_script = os.path.join(os.path.dirname(__file__), 'tg_app.py')
+    app_script = os.path.join(os.path.dirname(__file__), "app.py")
+    tg_app_script = os.path.join(os.path.dirname(__file__), "tg_app.py")
 
     # Start app.py
-    app_process = subprocess.Popen(['python', app_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    app_process = subprocess.Popen(
+        ["python", app_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     print("Started app.py")
 
     # Start tg_app.py
-    tg_app_process = subprocess.Popen(['python', tg_app_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    tg_app_process = subprocess.Popen(
+        ["python", tg_app_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     print("Started tg_app.py")
 
     try:

@@ -7,17 +7,14 @@ from fluent.runtime import FluentLocalization
 
 # Middleware to add localization to the data dictionary
 class L10nMiddleware(BaseMiddleware):
-    def __init__(
-        self,
-        locale: FluentLocalization
-    ):
+    def __init__(self, locale: FluentLocalization):
         self.locale = locale
 
     async def __call__(
         self,
         handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
         event: Message,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
     ) -> Any:
         data["l10n"] = self.locale
         return await handler(event, data)

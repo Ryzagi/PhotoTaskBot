@@ -12,10 +12,21 @@ from aiogram.client.session import aiohttp
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from tg_app import process_photo_message, process_text_message, notify_all_users, notify_user, \
-    add_subscription_limits_for_all_users
-from bot.constants import ADD_NEW_USER_ENDPOINT, PRICE_PER_IMAGE_IN_STARS, DONATE_ENDPOINT, NETWORK, \
-    GET_CURRENT_BALANCE_ENDPOINT, GET_ALL_USER_IDS
+from tg_app import (
+    process_photo_message,
+    process_text_message,
+    notify_all_users,
+    notify_user,
+    add_subscription_limits_for_all_users,
+)
+from bot.constants import (
+    ADD_NEW_USER_ENDPOINT,
+    PRICE_PER_IMAGE_IN_STARS,
+    DONATE_ENDPOINT,
+    NETWORK,
+    GET_CURRENT_BALANCE_ENDPOINT,
+    GET_ALL_USER_IDS,
+)
 
 router = Router()
 logger = structlog.get_logger()
@@ -40,45 +51,39 @@ async def command_start_handler(message: Message, l10n: FluentLocalization) -> N
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-                f"http://{NETWORK}:8000{ADD_NEW_USER_ENDPOINT}",
-                json=data
+            f"http://{NETWORK}:8000{ADD_NEW_USER_ENDPOINT}", json=data
         ) as response:
             answer = await response.json()
             if response.status != 200:
-                raise Exception(f"Failed to add new user. Status code: {response.status}")
+                raise Exception(
+                    f"Failed to add new user. Status code: {response.status}"
+                )
         print(answer)
     await message.answer(l10n.format_value("cmd-start"))
 
 
 @router.message(Command("donate"))
 async def cmd_donate(
-        message: Message,
-        command: CommandObject,
-        l10n: FluentLocalization,
+    message: Message,
+    command: CommandObject,
+    l10n: FluentLocalization,
 ):
     builder = InlineKeyboardBuilder()
-    builder.button(
-        text=f"Оплатить {PRICE_PER_IMAGE_IN_STARS} XTR",
-        pay=True
-    )
-    builder.button(
-        text="Отменить покупку",
-        callback_data="cancel"
-    )
+    builder.button(text=f"Оплатить {PRICE_PER_IMAGE_IN_STARS} XTR", pay=True)
+    builder.button(text="Отменить покупку", callback_data="cancel")
     builder.adjust(1)
 
     prices = [LabeledPrice(label="XTR", amount=PRICE_PER_IMAGE_IN_STARS)]
     await message.answer_invoice(
         title=l10n.format_value("invoice-title"),
         description=l10n.format_value(
-            "invoice-description",
-            {"starsCount": PRICE_PER_IMAGE_IN_STARS}
+            "invoice-description", {"starsCount": PRICE_PER_IMAGE_IN_STARS}
         ),
         prices=prices,
         provider_token="",
         payload=f"{PRICE_PER_IMAGE_IN_STARS}_stars",
         currency="XTR",
-        reply_markup=builder.as_markup()
+        reply_markup=builder.as_markup(),
     )
 
 
@@ -91,40 +96,30 @@ async def cancel_purchase(callback_query: CallbackQuery):
 
 
 @router.message(Command("paysupport"))
-async def cmd_paysupport(
-        message: Message,
-        l10n: FluentLocalization
-):
+async def cmd_paysupport(message: Message, l10n: FluentLocalization):
     await message.answer(l10n.format_value("cmd-paysupport"))
 
 
 @router.message(Command("refund"))
 async def cmd_refund(
-        message: Message,
-        bot: Bot,
-        command: CommandObject,
-        l10n: FluentLocalization,
+    message: Message,
+    bot: Bot,
+    command: CommandObject,
+    l10n: FluentLocalization,
 ):
     transaction_id = command.args
     user_id = str(message.from_user.id)
     if user_id != ADMIN_TG_ID:
-        await message.answer(
-            l10n.format_value("refund-not-allowed")
-        )
+        await message.answer(l10n.format_value("refund-not-allowed"))
         return
     if transaction_id is None:
-        await message.answer(
-            l10n.format_value("refund-no-code-provided")
-        )
+        await message.answer(l10n.format_value("refund-no-code-provided"))
         return
     try:
         await bot.refund_star_payment(
-            user_id=message.from_user.id,
-            telegram_payment_charge_id=transaction_id
+            user_id=message.from_user.id, telegram_payment_charge_id=transaction_id
         )
-        await message.answer(
-            l10n.format_value("refund-successful")
-        )
+        await message.answer(l10n.format_value("refund-successful"))
     except TelegramBadRequest as error:
         if "CHARGE_NOT_FOUND" in error.message:
             text = l10n.format_value("refund-code-not-found")
@@ -140,33 +135,32 @@ async def cmd_refund(
 
 @router.message(Command("donate_link"))
 async def cmd_link(
-        message: Message,
-        bot: Bot,
-        l10n: FluentLocalization,
+    message: Message,
+    bot: Bot,
+    l10n: FluentLocalization,
 ):
     invoice_link = await bot.create_invoice_link(
         title=l10n.format_value("invoice-title"),
         description=l10n.format_value(
-            "invoice-description",
-            {"starsCount": PRICE_PER_IMAGE_IN_STARS}
+            "invoice-description", {"starsCount": PRICE_PER_IMAGE_IN_STARS}
         ),
         prices=[LabeledPrice(label="XTR", amount=PRICE_PER_IMAGE_IN_STARS)],
         provider_token="",
         payload="demo",
-        currency="XTR"
+        currency="XTR",
     )
     await message.answer(
         l10n.format_value(
             "invoice-link-text",
-            {"link": invoice_link, "starsCount": PRICE_PER_IMAGE_IN_STARS}
+            {"link": invoice_link, "starsCount": PRICE_PER_IMAGE_IN_STARS},
         )
     )
 
 
 @router.pre_checkout_query()
 async def on_pre_checkout_query(
-        pre_checkout_query: PreCheckoutQuery,
-        l10n: FluentLocalization,
+    pre_checkout_query: PreCheckoutQuery,
+    l10n: FluentLocalization,
 ):
     await pre_checkout_query.answer(ok=True)
 
@@ -179,28 +173,28 @@ async def on_pre_checkout_query(
 
 @router.message(F.successful_payment)
 async def on_successful_payment(
-        message: Message,
-        l10n: FluentLocalization,
+    message: Message,
+    l10n: FluentLocalization,
 ):
     await logger.ainfo(
         "Получен новый донат!",
         amount=message.successful_payment.total_amount,
         from_user_id=message.from_user.id,
-        user_username=message.from_user.username
+        user_username=message.from_user.username,
     )
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                    f"http://{NETWORK}:8000{DONATE_ENDPOINT}",
-                    json={
-                        "user_id": message.from_user.id,
-                        "username": message.from_user.username,
-                        "first_name": message.from_user.first_name,
-                        "last_name": message.from_user.last_name,
-                        "language_code": message.from_user.language_code,
-                        "is_premium": message.from_user.is_premium,
-                        "is_bot": message.from_user.is_bot,
-                    }
+                f"http://{NETWORK}:8000{DONATE_ENDPOINT}",
+                json={
+                    "user_id": message.from_user.id,
+                    "username": message.from_user.username,
+                    "first_name": message.from_user.first_name,
+                    "last_name": message.from_user.last_name,
+                    "language_code": message.from_user.language_code,
+                    "is_premium": message.from_user.is_premium,
+                    "is_bot": message.from_user.is_bot,
+                },
             ) as response:
                 answer = await response.json()
                 if response.status != 200:
@@ -210,15 +204,13 @@ async def on_successful_payment(
         await message.answer(
             l10n.format_value(
                 "payment-successful",
-                {"id": message.successful_payment.telegram_payment_charge_id}
+                {"id": message.successful_payment.telegram_payment_charge_id},
             ),
             # Fireworks!
             message_effect_id="5104841245755180586",
         )
     except Exception as e:
-        await message.answer(
-            l10n.format_value("payment-error")
-        )
+        await message.answer(l10n.format_value("payment-error"))
         await logger.aexception("Failed to process payment", exc_info=e)
 
 
@@ -226,21 +218,30 @@ async def on_successful_payment(
 async def cmd_balance(message: Message, l10n: FluentLocalization):
     async with aiohttp.ClientSession() as session:
         async with session.post(
-                f"http://{NETWORK}:8000{GET_CURRENT_BALANCE_ENDPOINT}",
-                json={"user_id": str(message.from_user.id)}
+            f"http://{NETWORK}:8000{GET_CURRENT_BALANCE_ENDPOINT}",
+            json={"user_id": str(message.from_user.id)},
         ) as response:
             answer = await response.json()
             print("ANSWER", answer)
             if response.status != 200:
-                raise Exception(f"Failed to get balance. Status code: {response.status}")
+                raise Exception(
+                    f"Failed to get balance. Status code: {response.status}"
+                )
     limits = answer["message"]
-    daily_limit = limits[0]['daily_limit']
-    subscription_limit = limits[0]['subscription_limit']
+    daily_limit = limits[0]["daily_limit"]
+    subscription_limit = limits[0]["subscription_limit"]
     print(daily_limit, subscription_limit)
-    print(l10n.format_value("balance-info", {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)}))
+    print(
+        l10n.format_value(
+            "balance-info",
+            {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)},
+        )
+    )
     await message.answer(
-        l10n.format_value("balance-info", {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)})
-
+        l10n.format_value(
+            "balance-info",
+            {"daily_limit": int(daily_limit), "donate_limit": int(subscription_limit)},
+        )
     )
 
 
@@ -248,9 +249,7 @@ async def cmd_balance(message: Message, l10n: FluentLocalization):
 async def cmd_notify_all(message: Message, l10n: FluentLocalization):
     user_id = str(message.from_user.id)
     if user_id != ADMIN_TG_ID:
-        await message.answer(
-            l10n.format_value("notify-not-allowed")
-        )
+        await message.answer(l10n.format_value("notify-not-allowed"))
         return
     await notify_all_users(message)
 
@@ -259,20 +258,18 @@ async def cmd_notify_all(message: Message, l10n: FluentLocalization):
 async def cmd_notify_user(message: Message, l10n: FluentLocalization):
     user_id = str(message.from_user.id)
     if user_id != ADMIN_TG_ID:
-        await message.answer(
-            l10n.format_value("notify-not-allowed")
-        )
+        await message.answer(l10n.format_value("notify-not-allowed"))
         return
     await notify_user(message)
 
 
 @router.message(Command("add_subscription_limits_for_all_users"))
-async def cmd_add_subscription_limits_for_all_users(message: Message, l10n: FluentLocalization):
+async def cmd_add_subscription_limits_for_all_users(
+    message: Message, l10n: FluentLocalization
+):
     user_id = str(message.from_user.id)
     if user_id != ADMIN_TG_ID:
-        await message.answer(
-            l10n.format_value("notify-not-allowed")
-        )
+        await message.answer(l10n.format_value("notify-not-allowed"))
         return
     limit = message.text.split(" ")[1]
     await add_subscription_limits_for_all_users(limit)
