@@ -1,10 +1,67 @@
-import json
-from typing import Dict, Union
-from datetime import date
+import inspect
+from functools import wraps
+from typing import Dict, Union, Callable, Any
+from datetime import date, datetime, timedelta, UTC
 from supabase import create_client, Client
 
 from bot.constants import SUB_FOLDER, DEFAULT_DAILY_LIMIT
 
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+def _is_auth_error(exc: Exception) -> bool:
+    s = str(exc)
+    return (
+        "JWT expired" in s
+        or "PGRST301" in s
+        or "Invalid JWT" in s
+        or "JWSError" in s
+        or "Token expired" in s
+    )
+
+def auth_retry(max_retries: int = 1):
+    """
+    Decorator for SupabaseService methods.
+    - Ensures session.
+    - Retries on auth/JWT errors (re-login before retry).
+    - On final failure returns standardized dict (never raises to caller).
+    """
+    def outer(func: Callable):
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(self, *args, **kwargs):
+                for attempt in range(max_retries + 1):
+                    self._ensure_session()
+                    try:
+                        return await func(self, *args, **kwargs)
+                    except Exception as e:
+                        if attempt < max_retries and _is_auth_error(e):
+                            self._login()
+                            continue
+                        return {
+                            "message": f"{func.__name__} failed",
+                            "status_code": 400,
+                            "error": str(e),
+                        }
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(self, *args, **kwargs):
+                for attempt in range(max_retries + 1):
+                    self._ensure_session()
+                    try:
+                        return func(self, *args, **kwargs)
+                    except Exception as e:
+                        if attempt < max_retries and _is_auth_error(e):
+                            self._login()
+                            continue
+                        return {
+                            "message": f"{func.__name__} failed",
+                            "status_code": 400,
+                            "error": str(e),
+                        }
+            return sync_wrapper
+    return outer
 
 class SupabaseService:
     def __init__(
@@ -15,48 +72,56 @@ class SupabaseService:
         self._users_table = "users"
         self._users_status_table = "users_status"
         self._task_table = "tasks"
+        self._email = user_email
+        self._password = user_password
+        self._session_expiry: datetime | None = None
+        self._login()
 
-        self.supabase_client.auth.sign_in_with_password(
-            {"email": user_email, "password": user_password}
+    def _login(self):
+        auth_resp = self.supabase_client.auth.sign_in_with_password(
+            {"email": self._email, "password": self._password}
         )
+        try:
+            expires_in = auth_resp.session.expires_in
+            self._session_expiry = _utcnow() + timedelta(seconds=expires_in - 30)
+        except Exception:
+            self._session_expiry = None
+
+    def _ensure_session(self):
+        if self._session_expiry and _utcnow() < self._session_expiry:
+            return
+        try:
+            self.supabase_client.auth.refresh_session()
+            self._session_expiry = _utcnow() + timedelta(minutes=5)
+        except Exception:
+            self._login()
 
     # TODO: Implement the async upload_file method
-    async def upload_file(
-        self, file_path: str, file_bytes: bytes
-    ) -> Dict[str, Union[str, int]]:
-        # Upload the bytes directly to Supabase Storage
+    @auth_retry()
+    async def upload_file(self, file_path: str, file_bytes: bytes) -> Dict[str, Union[str, int]]:
         supabase_path = f"{SUB_FOLDER}{file_path}"
-        try:
-            self.supabase_client.storage.from_(self.bucket_name).upload(
-                path=supabase_path, file=file_bytes
-            )
-            return {"message": "File uploaded successfully", "status_code": 200}
-        except Exception as e:
-            return {
-                "message": "Failed to upload file",
-                "status_code": 400,
-                "error": str(e),
-            }
+        self.supabase_client.storage.from_(self.bucket_name).upload(
+            path=supabase_path, file=file_bytes
+        )
+        return {"message": "File uploaded successfully", "status_code": 200}
 
+    @auth_retry()
     async def add_new_user(self, user_data: dict) -> Dict[str, Union[str, int]]:
-        # Add a new user to the "users" table in Supabase, if the user does not already exist
         user_id = user_data.get("user_id")
         if await self.is_exist(user_id):
             return {"message": "User already exists", "status_code": 200}
-        try:
-            self.supabase_client.table(self._users_table).insert(user_data).execute()
-            self.supabase_client.table(self._users_status_table).insert(
-                {
-                    "user_id": user_id,
-                    "last_processing_date": None,
-                    "daily_limit": DEFAULT_DAILY_LIMIT,
-                    "subscription_limit": 0,
-                }
-            ).execute()
-            return {"message": "User added successfully", "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to add user", "status_code": str(e)}
+        self.supabase_client.table(self._users_table).insert(user_data).execute()
+        self.supabase_client.table(self._users_status_table).insert(
+            {
+                "user_id": user_id,
+                "last_processing_date": None,
+                "daily_limit": DEFAULT_DAILY_LIMIT,
+                "subscription_limit": 0,
+            }
+        ).execute()
+        return {"message": "User added successfully", "status_code": 200}
 
+    @auth_retry()
     async def is_exist(self, user_id: str) -> bool:
         # Check if the user with the given user_id exists in the Supabase table
         data = (
@@ -69,46 +134,18 @@ class SupabaseService:
         print(data.data)
         return len(data.data) > 0
 
-    async def _get_last_processing_date(
-        self, user_id: str
-    ) -> Dict[str, Union[str, int]]:
-        # Get the last processing date for the user with the given user_id
-        try:
-            response = (
-                self.supabase_client.table(self._users_status_table)
-                .select("last_processing_date")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Last processing date", response.data[0]["last_processing_date"])
-            return {
-                "last_processing_date": response.data[0]["last_processing_date"],
-                "status_code": 200,
-            }
-        except Exception as e:
-            return {
-                "message": "Failed to get last processing date",
-                "status_code": str(e),
-            }
+    @auth_retry()
+    async def _get_last_processing_date(self, user_id: str) -> Dict[str, Union[str, int]]:
+        response = (
+            self.supabase_client.table(self._users_status_table)
+            .select("last_processing_date")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        val = response.data[0]["last_processing_date"] if response.data else None
+        return {"last_processing_date": val, "status_code": 200}
 
-    def _get_user_limits(self, user_id: str) -> Dict[str, Union[dict, int]]:
-        # Get the limits for all users
-        try:
-            response = (
-                self.supabase_client.table(self._users_status_table)
-                .select("daily_limit", "subscription_limit")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Limits", response.data[0])
-            return {"users_limits": response.data[0], "status_code": 200}
-        except Exception as e:
-            return {
-                "message": f"Failed to get users limits. Error: {e}",
-                "status_code": 400,
-                "users_limits": None,
-            }
-
+    @auth_retry()
     async def proceed_processing(
         self, user_id: str
     ) -> Union[bool, Dict[str, Union[str, int]]]:
@@ -146,175 +183,113 @@ class SupabaseService:
             print("Failed to proceed processing", str(e))
             return False
 
+    @auth_retry()
+    async def get_current_balance(self, user_id: str) -> Dict[str, Any]:
+        response = (
+            self.supabase_client.table(self._users_status_table)
+            .select("daily_limit", "subscription_limit", "last_processing_date")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not response.data:
+            return {"message": "User not found", "status_code": 404}
+        row = response.data[0]
+        if row.get("last_processing_date") != date.today().isoformat():
+            row["daily_limit"] = DEFAULT_DAILY_LIMIT
+        return {
+            "message": [
+                {
+                    "daily_limit": row["daily_limit"],
+                    "subscription_limit": row["subscription_limit"],
+                }
+            ],
+            "status_code": 200,
+        }
+
+    @auth_retry()
     async def _decrease_daily_limit(self, user_id: str) -> Dict[str, Union[str, int]]:
-        # Decrease the daily limit for the user with the given user_id
         balance = await self.get_current_balance(user_id)
-        user_limits = balance["message"][0]
-        daily_limit = user_limits["daily_limit"] - 1
-        try:
-            today = date.today().isoformat()
-            print(today)
-            data_to_insert = {"daily_limit": daily_limit, "last_processing_date": today}
-            print(data_to_insert)
-            response = (
-                self.supabase_client.table(self._users_status_table)
-                .update(data_to_insert)
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Daily limit decreased", response)
-            return {"message": "Daily limit decreased", "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to decrease daily limit", "status_code": str(e)}
+        if balance.get("status_code") != 200:
+            return {"message": "Balance fetch failed", "status_code": 400}
+        data_list = balance.get("message")
+        if not isinstance(data_list, list) or not data_list:
+            return {"message": "Malformed balance data", "status_code": 400}
+        current = data_list[0].get("daily_limit")
+        if current is None:
+            return {"message": "daily_limit missing", "status_code": 400}
+        new_limit = max(0, current - 1)
+        today = date.today().isoformat()
+        self.supabase_client.table(self._users_status_table).update(
+            {"daily_limit": new_limit, "last_processing_date": today}
+        ).eq("user_id", user_id).execute()
+        return {"message": "Daily limit decreased", "status_code": 200}
 
-    async def _decrease_subscription_limit(
-        self, user_id: str, subscription_limit: int
-    ) -> Dict[str, Union[str, int]]:
-        # Decrease the daily limit for the user with the given user_id
-        subscription_limit = subscription_limit - 1
-        try:
-            data_to_insert = {"subscription_limit": subscription_limit}
-            response = (
-                self.supabase_client.table(self._users_status_table)
-                .update(data_to_insert)
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Subscription limit decreased", response)
-            return {"message": "Subscription limit decreased", "status_code": 200}
-        except Exception as e:
-            return {
-                "message": "Failed to decrease subscription limit",
-                "status_code": str(e),
-            }
+    @auth_retry()
+    async def _decrease_subscription_limit(self, user_id: str, subscription_limit: int) -> Dict[str, Union[str, int]]:
+        new_limit = max(0, subscription_limit - 1)
+        self.supabase_client.table(self._users_status_table).update(
+            {"subscription_limit": new_limit}
+        ).eq("user_id", user_id).execute()
+        return {"message": "Subscription limit decreased", "status_code": 200}
 
-    async def update_last_processing_image_path(
-        self, user_id: str, image_path: str
-    ) -> Dict[str, Union[str, int]]:
-        # Update the last processing image path for the user with the given user_id
-        try:
-            data_to_insert = {"last_processing_image_path": image_path}
-            self.supabase_client.table(self._users_status_table).update(
-                data_to_insert
-            ).eq("user_id", user_id).execute()
-            return {"message": "Last processing image path updated", "status_code": 200}
-        except Exception as e:
-            return {
-                "message": "Failed to update last processing image path",
-                "status_code": str(e),
-            }
+    @auth_retry()
+    async def update_last_processing_image_path(self, user_id: str, image_path: str) -> Dict[str, Union[str, int]]:
+        self.supabase_client.table(self._users_status_table).update(
+            {"last_processing_image_path": image_path}
+        ).eq("user_id", user_id).execute()
+        return {"message": "Last processing image path updated", "status_code": 200}
 
-    async def insert_solution(
-        self, user_id: str, file_path: str, solution: dict
-    ) -> Dict[str, Union[str, int]]:
-        # Insert the solution into the "tasks" table in Supabase
-        try:
-            data_to_insert = {
-                "user_id": user_id,
-                "file_path": file_path,
-                "solution": solution,
-            }
-            self.supabase_client.table(self._task_table).insert(
-                data_to_insert
-            ).execute()
-            return {"message": "Solution inserted successfully", "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to insert solution", "status_code": str(e)}
 
-    async def get_exist_solution(
-        self, user_id: str, file_path: str
-    ) -> Dict[str, Union[str, int]]:
-        # Get the solutions for the user with the given user_id and file_path
-        try:
-            response = (
-                self.supabase_client.table(self._task_table)
-                .select("solution")
-                .eq("user_id", user_id)
-                .eq("file_path", file_path)
-                .execute()
-            )
-            print("Existing solution", response.data[0]["solution"])
-            return {"message": response.data, "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to get solutions", "status_code": str(e)}
+    @auth_retry()
+    async def insert_solution(self, user_id: str, file_path: str, solution: dict) -> Dict[str, Union[str, int]]:
+        self.supabase_client.table(self._task_table).insert(
+            {"user_id": user_id, "file_path": file_path, "solution": solution}
+        ).execute()
+        return {"message": "Solution inserted successfully", "status_code": 200}
 
-    async def add_subscription_limit(
-        self, user_id: str, subscription_limit: int = 1
-    ) -> Dict[str, Union[str, int]]:
-        # Add to the subscription limit for the user with the given user_id
-        try:
-            # Retrieve the current subscription_limit
-            current_data = (
-                self.supabase_client.table(self._users_status_table)
-                .select("subscription_limit")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Current data", current_data.data)
-            if not current_data or not current_data.data:
-                return {"message": "User not found or invalid data", "status_code": 404}
 
-            current_limit = current_data.data[0]["subscription_limit"]
+    @auth_retry()
+    async def get_exist_solution(self, user_id: str, file_path: str) -> Dict[str, Union[str, int]]:
+        response = (
+            self.supabase_client.table(self._task_table)
+            .select("solution")
+            .eq("user_id", user_id)
+            .eq("file_path", file_path)
+            .execute()
+        )
+        return {"message": response.data, "status_code": 200}
 
-            # Calculate the new subscription limit
-            new_limit = current_limit + subscription_limit
-            print("New limit", new_limit)
-            # Update the subscription_limit in the database
-            data_to_update = {"subscription_limit": new_limit}
-            self.supabase_client.table(self._users_status_table).update(
-                data_to_update
-            ).eq("user_id", user_id).execute()
+    @auth_retry()
+    async def add_subscription_limit(self, user_id: str, subscription_limit: int = 1) -> Dict[str, Union[str, int]]:
+        current = (
+            self.supabase_client.table(self._users_status_table)
+            .select("subscription_limit")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not current.data:
+            return {"message": "User not found", "status_code": 404}
+        new_limit = current.data[0]["subscription_limit"] + subscription_limit
+        self.supabase_client.table(self._users_status_table).update(
+            {"subscription_limit": new_limit}
+        ).eq("user_id", user_id).execute()
+        return {"message": "Subscription updated successfully", "status_code": 200}
 
-            return {"message": "Subscription updated successfully", "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to update subscription", "status_code": str(e)}
 
-    async def get_current_balance(self, user_id: str) -> Dict:
-        # Get the current daily limit and subscription limit for the user with the given user_id
-        try:
-            response = (
-                self.supabase_client.table(self._users_status_table)
-                .select("daily_limit", "subscription_limit")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            print("Current balance", response.data)
-            last_processing_date = await self._get_last_processing_date(user_id)
-            if last_processing_date["last_processing_date"] != date.today().isoformat():
-                response.data[0]["daily_limit"] = DEFAULT_DAILY_LIMIT
-
-            return {"message": response.data, "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to get limits", "status_code": str(e)}
-
+    @auth_retry()
     async def get_all_user_ids(self) -> Dict[str, Union[str, int]]:
-        # Get all user IDs from the "users" table in Supabase
-        try:
-            response = (
-                self.supabase_client.table(self._users_table)
-                .select("user_id")
-                .execute()
-            )
-            print("All user IDs", response.data)
-            return {"message": response.data, "status_code": 200}
-        except Exception as e:
-            return {"message": "Failed to get user IDs", "status_code": str(e)}
+        response = (
+            self.supabase_client.table(self._users_table)
+            .select("user_id")
+            .execute()
+        )
+        return {"message": response.data, "status_code": 200}
 
-    async def add_subscription_limits_for_all_users(
-        self, subscription_limit: int
-    ) -> Dict[str, Union[str, int]]:
-        # Add to the subscription limit for all users
-        try:
-            # Retrieve all user IDs
-            user_ids = await self.get_all_user_ids()
-            for user_id in user_ids["message"]:
-                # Add to the subscription limit for each user
-                await self.add_subscription_limit(
-                    user_id["user_id"], int(subscription_limit)
-                )
-            return {"message": user_ids["message"], "status_code": 200}
-        except Exception as e:
-            return {
-                "message": "Failed to update subscription for all users",
-                "status_code": str(e),
-            }
+    @auth_retry()
+    async def add_subscription_limits_for_all_users(self, subscription_limit: int) -> Dict[str, Union[str, int]]:
+        users = await self.get_all_user_ids()
+        if users.get("status_code") != 200:
+            return {"message": "Failed to fetch users", "status_code": 400}
+        for u in users["message"]:
+            await self.add_subscription_limit(u["user_id"], int(subscription_limit))
+        return {"message": users["message"], "status_code": 200}

@@ -8,6 +8,7 @@ import sys
 import routers
 import subprocess
 import tempfile
+import shutil
 
 from aiogram import Bot, Dispatcher, exceptions
 from aiogram.client.default import DefaultBotProperties
@@ -28,6 +29,7 @@ from bot.constants import (
     ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS,
 )
 from bot.fluent_loader import get_fluent_localization
+from bot.latex_renderer import latex_renderer
 from bot.localization import L10nMiddleware
 from dotenv import load_dotenv
 
@@ -36,6 +38,135 @@ TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 ADMIN_TG_ID = os.environ.get("ADMIN_TG_ID")
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
+LATEX_ENGINE_ENV = os.getenv("LATEX_ENGINE", "").strip().lower()
+
+def pick_latex_engine():
+    """
+    Determine which LaTeX engine is available.
+    Priority: explicit env -> xelatex -> lualatex -> pdflatex.
+    """
+    candidates = []
+    if LATEX_ENGINE_ENV:
+        candidates.append(LATEX_ENGINE_ENV)
+    candidates += ["xelatex", "lualatex", "pdflatex"]
+    for eng in candidates:
+        if shutil.which(eng):
+            return eng
+    return None
+
+
+def build_latex_header(engine: str, minimal: bool = False) -> str:
+    """
+    Build a header appropriate for the chosen engine.
+    For XeLaTeX/LuaLaTeX: use fontspec + polyglossia with Liberation fonts (Cyrillic capable).
+    For pdfLaTeX: use T2A + babel (requires texlive-lang-cyrillic + cm-super installed).
+    """
+    if engine in ("xelatex", "lualatex"):
+        main_font = "Liberation Serif"
+        sans_font = "Liberation Sans"
+        mono_font = "Liberation Mono"
+        return (
+            "\\documentclass[preview]{standalone}\n"
+            "\\usepackage{amsmath,amssymb}\n"
+            "\\usepackage{polyglossia}\n"
+            "\\setdefaultlanguage{russian}\n"
+            "\\setotherlanguage{english}\n"
+            "\\usepackage{fontspec}\n"
+            "\\defaultfontfeatures{Ligatures=TeX}\n"
+            f"\\setmainfont{{{main_font}}}\n"
+            f"\\setsansfont{{{sans_font}}}\n"
+            f"\\setmonofont{{{mono_font}}}\n"
+            f"\\newfontfamily\\russianfont{{{main_font}}}\n"
+            f"\\newfontfamily\\russianfontsf{{{sans_font}}}\n"
+            f"\\newfontfamily\\russianfonttt{{{mono_font}}}\n"
+            "\\begin{document}\n"
+        )
+    else:
+        extra = "" if minimal else "\n\\usepackage{icomma}"
+        return (
+            "\\documentclass[preview]{standalone}\n"
+            "\\usepackage[T2A]{fontenc}\n"
+            "\\usepackage[utf8]{inputenc}\n"
+            "\\usepackage[russian,english]{babel}\n"
+            "\\usepackage{amsmath,amssymb}" + extra + "\n"
+            "\\begin{document}\n"
+        )
+
+LATEX_FOOTER = "\\end{document}\n"
+
+def make_solution_body(solution) -> str:
+    lines = []
+    lines.append(r"\textbf{Задание:}\\ " + process_text_with_math(solution["problem"]) + r"\\[8pt]")
+    lines.append(r"\textbf{Решение:}\\[-2pt]")
+    lines.append(r"\begin{enumerate}")
+    for step in solution["steps"]:
+        if step["type"] == "math":
+            lines.append(r"\item $" + strip_math_delimiters(step["content"]) + r"$")
+        else:
+            lines.append(r"\item " + process_text_with_math(step["content"]))
+    lines.append(r"\end{enumerate}")
+    lines.append(r"\textbf{Ответ:}\\[-2pt]")
+    lines.append(r"\begin{enumerate}")
+    for sol in solution["solution"]:
+        if sol["type"] == "math":
+            lines.append(r"\item $" + strip_math_delimiters(sol["content"]) + r"$")
+        else:
+            lines.append(r"\item " + process_text_with_math(sol["content"]))
+    lines.append(r"\end{enumerate}")
+    return "\n".join(lines)
+
+def build_full_latex(solution, engine: str, minimal: bool = False) -> str:
+    return build_latex_header(engine, minimal=minimal) + make_solution_body(solution) + LATEX_FOOTER
+
+def compile_latex(latex_code: str, engine: str):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tex_path = os.path.join(temp_dir, "doc.tex")
+        with open(tex_path, "w", encoding="utf-8") as f:
+            f.write(latex_code)
+
+        cmd = [engine, "-interaction=nonstopmode", "-halt-on-error", "-output-directory", temp_dir, tex_path]
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            raise RuntimeError(f"{engine} failed: {proc.stderr.decode('utf-8','ignore')[:500]}")
+
+        pdf_path = os.path.join(temp_dir, "doc.pdf")
+        if not os.path.exists(pdf_path):
+            raise RuntimeError("PDF not produced")
+
+        # Convert to PNG (higher DPI for readability)
+        png_base = os.path.join(temp_dir, "out")
+        conv = subprocess.run(["pdftoppm", "-png", "-singlefile", "-r", "200", pdf_path, png_base],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if conv.returncode != 0:
+            raise RuntimeError(f"pdftoppm failed: {conv.stderr.decode('utf-8','ignore')[:400]}")
+        with open(png_base + ".png", "rb") as img:
+            return img.read()
+
+def render_solution_to_png(solution):
+    engine = pick_latex_engine()
+    if not engine:
+        raise RuntimeError("No LaTeX engine found (install xelatex or pdflatex).")
+    errors = []
+    # Attempt rich header first (fontspec if engine supports)
+    tries = [
+        dict(minimal=False),
+        dict(minimal=True)
+    ]
+    for t in tries:
+        try:
+            code = build_full_latex(solution, engine, minimal=t["minimal"])
+            return compile_latex(code, engine)
+        except Exception as e:
+            errors.append(str(e))
+            continue
+    # If using xelatex failed completely and pdflatex exists, fallback to pdflatex explicitly
+    if engine != "pdflatex" and shutil.which("pdflatex"):
+        try:
+            code = build_full_latex(solution, "pdflatex", minimal=True)
+            return compile_latex(code, "pdflatex")
+        except Exception as e:
+            errors.append(str(e))
+    raise RuntimeError("All LaTeX render attempts failed:\n" + "\n---\n".join(errors))
 
 async def save_image(path, photo_io, user_id):
     # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
@@ -211,57 +342,66 @@ def _prepare_latex_document(solution):
     return full_latex
 
 
-def strip_math_delimiters(s):
-    """Remove math delimiters from a string."""
-    s = s.strip()
-    if s.startswith("$$") and s.endswith("$$"):
-        return s[2:-2].strip()
-    elif s.startswith("$") and s.endswith("$"):
-        return s[1:-1].strip()
-    elif s.startswith("\\[") and s.endswith("\\]"):
-        return s[2:-2].strip()
-    elif s.startswith("\\(") and s.endswith("\\)"):
-        return s[2:-2].strip()
-    else:
-        return s
+#def strip_math_delimiters(s):
+#    """Remove math delimiters from a string."""
+#    s = s.strip()
+#    if s.startswith("$$") and s.endswith("$$"):
+#        return s[2:-2].strip()
+#    elif s.startswith("$") and s.endswith("$"):
+#        return s[1:-1].strip()
+#    elif s.startswith("\\[") and s.endswith("\\]"):
+#        return s[2:-2].strip()
+#    elif s.startswith("\\(") and s.endswith("\\)"):
+#        return s[2:-2].strip()
+#    else:
+#        return s
 
 
-def escape_latex_special_chars(text):
-    """Escape special LaTeX characters in text."""
-    special_chars = {
+def escape_latex_special_chars(text: str) -> str:
+    # Removed caret ^ (DO NOT escape in normal text; math cares about it)
+    special = {
         "&": r"\&",
         "%": r"\%",
         "$": r"\$",
         "#": r"\#",
-        "_": r"\_",  # Escape underscores
-        # '{':  r'\{',          # Do not escape '{' and '}'
-        # '}':  r'\}',
+        "_": r"\_",
         "~": r"\textasciitilde{}",
-        "^": r"\^{}",
-        # Backslashes are not escaped here
+        # Do not escape ^ or backslash here
     }
-    for char, escape_seq in special_chars.items():
-        text = text.replace(char, escape_seq)
+    for k, v in special.items():
+        text = text.replace(k, v)
     return text
 
+_MATH_BLOCK_RE = re.compile(r"(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))", re.DOTALL)
 
-def process_text_with_math(text):
-    """Process text content with embedded math expressions."""
-    # Regular expression to find math expressions within \( ... \) or $ ... $
-    pattern = r"(\$.*?\$|\\\(.*?\\\)|\\\[.*?\\\])"
+def normalize_display_math(text: str) -> str:
+    # Convert $$...$$ to \[...\] to avoid nested $ parsing ambiguity
+    return re.sub(r"\$\$(.*?)\$\$", r"\\[\1\\]", text, flags=re.DOTALL)
 
-    # Split the text into math and non-math parts
-    parts = re.split(pattern, text, flags=re.DOTALL)
 
-    processed_parts = []
+def process_text_with_math(text: str) -> str:
+    """
+    Split text into math / non-math fragments.
+    Never escape inside math fragments.
+    """
+    text = normalize_display_math(text)
+    parts = _MATH_BLOCK_RE.split(text)
+    out = []
     for part in parts:
-        if re.match(pattern, part, flags=re.DOTALL):
-            # It's a math expression, leave it as is
-            processed_parts.append(part)
+        if not part:
+            continue
+        if _MATH_BLOCK_RE.fullmatch(part):
+            out.append(part)          # raw math
         else:
-            # It's normal text, escape special characters
-            processed_parts.append(escape_latex_special_chars(part))
-    return "".join(processed_parts)
+            out.append(escape_latex_special_chars(part))
+    return "".join(out)
+
+def strip_math_delimiters(s: str) -> str:
+    s = s.strip()
+    for a, b in (("$$","$$"), ("\\[","\\]"), ("\\(","\\)"), ("$","$")):
+        if s.startswith(a) and s.endswith(b):
+            return s[len(a):-len(b)].strip()
+    return s
 
 
 def prepare_latex_document(solution):
@@ -382,81 +522,76 @@ def render_latex_to_image(latex_code):
 
 
 def regenerate_latex(solution):
-    """Simplify LaTeX content to reduce compilation errors."""
-    latex_code = prepare_latex_document(solution)
-    # Optionally, strip problematic sections or simplify the content here.
-    # Example: Removing custom fonts or specific packages
-    simplified_latex_code = latex_code.replace(r"\usepackage{fontspec}", "").replace(
-        r"\setmainfont{Liberation Serif}", ""
-    )
-    return simplified_latex_code
-
-
-def prepare_plain_text_document(solution):
-    """Prepare a plain-text version of the solution."""
-    content = "Задание:\n" + solution["problem"] + "\n\n"
-    content += "Решение:\n"
-    for idx, step in enumerate(solution["steps"], start=1):
+    # Build simplified doc (no fontspec/polyglossia to reduce failures)
+    header = r"""
+\documentclass[preview]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\begin{document}
+"""
+    footer = r"\end{document}"
+    body = []
+    body.append(r"\textbf{Задание:}\\ " + process_text_with_math(solution["problem"]) + r"\\[6pt]")
+    body.append(r"\textbf{Решение:}\\[-2pt]")
+    body.append(r"\begin{enumerate}")
+    for step in solution["steps"]:
         if step["type"] == "math":
-            step_content = strip_math_delimiters(step["content"])
-            content += f"{idx}. {step_content}\n"
+            body.append(r"\item $" + strip_math_delimiters(step["content"]) + r"$")
         else:
-            content += f"{idx}. {step['content']}\n"
-    content += "\nОтвет:\n"
+            body.append(r"\item " + process_text_with_math(step["content"]))
+    body.append(r"\end{enumerate}")
+    body.append(r"\textbf{Ответ:}\\[-2pt]")
+    body.append(r"\begin{enumerate}")
     for sol in solution["solution"]:
         if sol["type"] == "math":
-            sol_content = strip_math_delimiters(sol["content"])
-            content += f"- {sol_content}\n"
+            body.append(r"\item $" + strip_math_delimiters(sol["content"]) + r"$")
         else:
-            content += f"- {sol['content']}\n"
-    return content
+            body.append(r"\item " + process_text_with_math(sol["content"]))
+    body.append(r"\end{enumerate}")
+    return header + "\n".join(body) + footer
 
 
 async def send_solution_to_user(message, answer):
-    """Send the solution to the user as an image."""
-    if answer:
-        if isinstance(answer, str):
-            # Parse the JSON string into a Python dictionary
-            answer = json.loads(answer)
-        # Do not escape backslashes in the JSON data
-        print("Answer:", answer)
-        for solution in answer["solutions"]:
-            # Prepare LaTeX document using the adjusted function
-            latex_code = prepare_latex_document(solution)
-            # Render LaTeX to image
-            try:
-                image_bytes = render_latex_to_image(latex_code)
-            except Exception as e:
-                print(f"Initial LaTeX compilation failed: {e}")
-                latex_code = regenerate_latex(solution)
-                try:
-                    image_bytes = render_latex_to_image(latex_code)
-                except Exception as e:
-                    # Handle LaTeX compilation errors
-                    print(f"LaTeX compilation error: {e}")
-                    # plain_text = prepare_plain_text_document(solution)
-                    print(f"So, the solution is: {answer}")
-                    plain_text = await latex_to_text_solution(
-                        str(solution), message.from_user.id
-                    )
-                    print(f"Plain text solution: {plain_text}")
-                    await message.answer(
-                        f"Ошибка при создании изображения. Вот текстовое решение:"
-                    )
-                    await send_text_solution_to_user(message, plain_text)
-                    continue  # Skip to the next solution
-
-            # Send image via bot
-            input_file = BufferedInputFile(image_bytes, filename="solution.png")
-            await message.answer_photo(input_file)
-            # Send to the admin
+    if not answer:
+        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
+        return
+    if isinstance(answer, str):
+        answer = json.loads(answer)
+    for idx, solution in enumerate(answer.get("solutions", []), start=1):
+        try:
+            img = render_solution_to_png(solution)
+            file = BufferedInputFile(img, filename=f"solution_{idx}.png")
+            await message.answer_photo(file, caption=f"Решение {idx}")
             await bot.send_photo(
                 chat_id=ADMIN_TG_ID,
-                photo=input_file,
+                photo=file,
                 caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}",
             )
-    else:
-        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
+        except Exception as e:
+            # Plain text fallback with notice
+            await message.answer(f"Проблема с LaTeX ({e}). Отправляю текст:")
+            await send_text_solution_to_user(message, json.dumps({"solutions":[solution]}))
+
+
+def prepare_plain_text_document(solution):
+    """Plain text fallback reflecting new data shape."""
+    out = []
+    out.append("Задание:\n" + _extract_item_content(solution.get("problem", "")) + "\n")
+    out.append("Решение:")
+    for idx, step in enumerate(solution.get("steps", []), start=1):
+        out.append(f"{idx}. {_extract_item_content(step)}")
+    out.append("\nОтвет:")
+    final_seq = solution.get("solution", [])
+    if isinstance(final_seq, (str, dict)):
+        final_seq = [final_seq]
+    for item in final_seq:
+        out.append(f"- {_extract_item_content(item)}")
+    return "\n".join(out) + "\n"
+
+
+
 
 
 async def process_photo_message(message: Message):
@@ -501,35 +636,78 @@ async def process_photo_message(message: Message):
 
 
 def escape_markdown(text):
+    """
+    Escape Telegram Markdown V2 special chars.
+    Accepts any type; converts to str first.
+    """
+    if not isinstance(text, str):
+        text = str(text)
     escape_chars = r"\_*[]()~`>#+-=|{}.!"
     return re.sub(r"([{}])".format(re.escape(escape_chars)), r"\\\1", text)
 
+def _extract_item_content(item):
+    """
+    Convert a step / solution item (dict or str) to raw text for display.
+    Math items: keep content as-is (Telegram will show inline).
+    """
+    if isinstance(item, dict):
+        return item.get("content", "")
+    return str(item)
+
 
 async def send_text_solution_to_user(message, answer):
-    print(answer)
-    if answer:
-        if isinstance(answer, str):
-            # Parse the JSON string into a Python dictionary
-            answer = json.loads(answer)
-        for solution in answer["solutions"]:
-            problem = escape_markdown(solution["problem"])
-            solution_text = escape_markdown(solution["solution"])
-            steps = "\n".join([escape_markdown(step) for step in solution["steps"]])
-            message_to_send = (
-                f"*Задание:* {problem}\n*Решение:*\n{steps}\n*Ответ:* {solution_text}"
-            )
-            await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
-            await bot.send_message(
-                ADMIN_TG_ID,
-                f"Text solution for the user: {message.from_user.id}, nickname: {message.from_user.username}:",
-            ),
-            await bot.send_message(
-                chat_id=ADMIN_TG_ID,
-                text=message_to_send,
-                parse_mode=ParseMode.MARKDOWN_V2,
-            )
-    else:
+    if not answer:
         await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
+        return
+    if isinstance(answer, str):
+        answer = json.loads(answer)
+
+    solutions = answer.get("solutions", [])
+    for sol in solutions:
+        problem_raw = sol.get("problem", "")
+        problem = escape_markdown(_extract_item_content(problem_raw))
+
+        # Steps
+        steps_seq = sol.get("steps", [])
+        step_lines = []
+        for idx, step in enumerate(steps_seq, start=1):
+            step_text_raw = _extract_item_content(step)
+            step_text = escape_markdown(step_text_raw)
+            step_lines.append(f"{idx}. {step_text}")
+
+        # Final solution (can be list or single)
+        final_seq = sol.get("solution", [])
+        if isinstance(final_seq, (str, dict)):
+            final_seq = [final_seq]
+        final_lines = []
+        for item in final_seq:
+            item_text = escape_markdown(_extract_item_content(item))
+            final_lines.append(f"- {item_text}")
+
+        message_to_send = (
+            f"*Задание:* {problem}\n"
+            f"*Решение:*\n" + "\n".join(step_lines) + "\n"
+            f"*Ответ:*\n" + "\n".join(final_lines)
+        )
+
+        await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
+
+        # Admin notifications (guard invalid ADMIN_TG_ID)
+        if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
+            try:
+                await bot.send_message(
+                    ADMIN_TG_ID,
+                    f"Text solution for user {message.from_user.id} (@{message.from_user.username}):",
+                )
+                await bot.send_message(
+                    chat_id=ADMIN_TG_ID,
+                    text=message_to_send,
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                )
+            except exceptions.TelegramAPIError:
+                pass
+
+
 
 
 async def process_text_message(message: Message):
