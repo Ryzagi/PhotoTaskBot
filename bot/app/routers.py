@@ -98,6 +98,9 @@ async def cmd_paysupport(message: Message, l10n: FluentLocalization):
     await message.answer(l10n.format_value("cmd-paysupport"))
 
 
+
+USAGE_TEXT = "Usage:\n" + html.code("/refund CHARGE_ID USER_ID") + "\nOR\n" + html.code("/refund USER_ID:CHARGE_ID")
+
 @router.message(Command("refund"))
 async def cmd_refund(
     message: Message,
@@ -105,30 +108,63 @@ async def cmd_refund(
     command: CommandObject,
     l10n: FluentLocalization,
 ):
-    transaction_id = command.args
-    user_id = str(message.from_user.id)
-    if user_id != ADMIN_TG_ID:
+    admin_id = str(message.from_user.id)
+    if admin_id != ADMIN_TG_ID:
         await message.answer(l10n.format_value("refund-not-allowed"))
         return
-    if transaction_id is None:
-        await message.answer(l10n.format_value("refund-no-code-provided"))
+
+    raw = (command.args or "").strip()
+    if not raw:
+        await message.answer(USAGE_TEXT)
         return
+
+    payer_user_id = None
+    charge_id = None
+
+    if ":" in raw and " " not in raw:
+        left, right = raw.split(":", 1)
+        if left.isdigit():
+            payer_user_id = int(left)
+            charge_id = right.strip()
+    else:
+        parts = raw.split()
+        if len(parts) == 2 and parts[1].isdigit():
+            charge_id, payer_user_id = parts[0], int(parts[1])
+
+    if charge_id:
+        charge_id = charge_id.strip()
+        if charge_id.startswith("{") and charge_id.endswith("}"):
+            charge_id = charge_id[1:-1].strip()
+
+    if not charge_id or not payer_user_id:
+        await message.answer(USAGE_TEXT)
+        return
+
     try:
         await bot.refund_star_payment(
-            user_id=message.from_user.id, telegram_payment_charge_id=transaction_id
+            user_id=payer_user_id,
+            telegram_payment_charge_id=charge_id,
         )
-        await message.answer(l10n.format_value("refund-successful"))
+        await message.answer(
+            l10n.format_value("refund-successful")
+            + f" (user {payer_user_id}, charge {html.quote(charge_id)})"
+        )
     except TelegramBadRequest as error:
+        await logger.awarn(
+            "Refund failed",
+            charge_id=charge_id,
+            payer_user_id=payer_user_id,
+            tg_error=error.message,
+        )
         if "CHARGE_NOT_FOUND" in error.message:
             text = l10n.format_value("refund-code-not-found")
         elif "CHARGE_ALREADY_REFUNDED" in error.message:
             text = l10n.format_value("refund-already-refunded")
+        elif "CHARGE_ID_EMPTY" in error.message:
+            text = l10n.format_value("refund-no-code-provided")
         else:
-            # При всех остальных ошибках – такой же текст,
-            # как и в первом случае
             text = l10n.format_value("refund-code-not-found")
         await message.answer(text)
-        return
 
 
 @router.message(Command("donate_link"))

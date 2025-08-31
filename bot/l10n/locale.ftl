@@ -34,7 +34,7 @@ refund-successful =
     Возврат произведён успешно. Потраченные звёзды уже вернулись на ваш счёт в Telegram.
 
 refund-no-code-provided =
-    Пожалуйста, введите команду <code>/refund КОД</code>, где КОД – айди транзакции.
+    Пожалуйста, введите команду <code>/refund <charge_id> <user_id> или /refund <user_id>:<charge_id></code>, где КОД – айди транзакции.
     Его можно увидеть после выполнения платежа, а также в разделе "Звёзды" в приложении Telegram.
 
 refund-code-not-found =
