@@ -40,6 +40,10 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 LATEX_ENGINE_ENV = os.getenv("LATEX_ENGINE", "").strip().lower()
 
+MD_V2_SPECIALS = r"_*[]()~`>#+-=|{}.!\\"
+
+_MD_V2_REGEX = re.compile(r"([_*[\]()~`>#+\-=|{}.!\\])")
+
 def pick_latex_engine():
     """
     Determine which LaTeX engine is available.
@@ -634,6 +638,17 @@ async def process_photo_message(message: Message):
     )
     await send_solution_to_user(message, answer)
 
+def escape_markdown_v2(text: str) -> str:
+    """
+    Escape Telegram Markdown V2 characters per spec.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    # First normalize Windows newlines
+    text = text.replace("\r\n", "\n")
+    # Escape required characters
+    return _MD_V2_REGEX.sub(r"\\\1", text)
+
 
 def escape_markdown(text):
     """
@@ -665,34 +680,38 @@ async def send_text_solution_to_user(message, answer):
     solutions = answer.get("solutions", [])
     for sol in solutions:
         problem_raw = sol.get("problem", "")
-        problem = escape_markdown(_extract_item_content(problem_raw))
+        problem = escape_markdown_v2(_extract_item_content(problem_raw))
 
-        # Steps
         steps_seq = sol.get("steps", [])
         step_lines = []
         for idx, step in enumerate(steps_seq, start=1):
-            step_text_raw = _extract_item_content(step)
-            step_text = escape_markdown(step_text_raw)
-            step_lines.append(f"{idx}. {step_text}")
+            raw = _extract_item_content(step)
+            line = f"{idx}. {raw}"
+            step_lines.append(escape_markdown_v2(line))
 
-        # Final solution (can be list or single)
         final_seq = sol.get("solution", [])
         if isinstance(final_seq, (str, dict)):
             final_seq = [final_seq]
+
         final_lines = []
         for item in final_seq:
-            item_text = escape_markdown(_extract_item_content(item))
-            final_lines.append(f"- {item_text}")
+            raw = _extract_item_content(item)
+            # Detect Markdown table (contains pipes on multiple lines)
+            if "|" in raw and "\n" in raw:
+                # Send table as fenced code block (need to escape backticks inside if any)
+                safe_table = raw.replace("`", "\\`")
+                final_lines.append("```\n" + safe_table + "\n```")
+            else:
+                final_lines.append(escape_markdown_v2(f"- {raw}"))
 
         message_to_send = (
-            f"*Задание:* {problem}\n"
-            f"*Решение:*\n" + "\n".join(step_lines) + "\n"
-            f"*Ответ:*\n" + "\n".join(final_lines)
+                f"*Задание:* {problem}\n"
+                f"*Решение:*\n" + "\n".join(step_lines) + "\n"
+                                                          f"*Ответ:*\n" + "\n".join(final_lines)
         )
 
         await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
 
-        # Admin notifications (guard invalid ADMIN_TG_ID)
         if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
             try:
                 await bot.send_message(
@@ -706,8 +725,6 @@ async def send_text_solution_to_user(message, answer):
                 )
             except exceptions.TelegramAPIError:
                 pass
-
-
 
 
 async def process_text_message(message: Message):
