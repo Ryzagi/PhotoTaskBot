@@ -14,18 +14,17 @@ RUN pip install .
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-xetex \
-    build-essential \
-    poppler-utils \
     texlive-latex-base \
     texlive-latex-extra \
     texlive-fonts-recommended \
     texlive-fonts-extra \
     texlive-lang-cyrillic \
-    texlive-lang-european \
-    texlive-lang-english \
+    lmodern \
+    cm-super \
+    poppler-utils \
+    fontconfig \
     fonts-liberation \
     fonts-dejavu \
-    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # Refresh font cache

@@ -40,13 +40,14 @@ async def solve_task(
 ):
     try:
         # Try using the GeminiSolver first
-        answer = await gemini_solver.solve(file)
+        #answer = await gemini_solver.solve(file)
+        answer = await solver.solve(file)
     except Exception as e:
         # Log the error and fall back to TaskSolverGPT
         print(f"Error with GeminiSolver: {e}. Falling back to TaskSolverGPT.")
         print(type(file))
         await file.seek(0)
-        answer = await solver.solve(file)
+        answer = await gemini_solver.solve(file)
     await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
     await db.insert_solution(user_id=user_id, file_path=image_path, solution=answer)
     print("GETTING SOLUTION", answer)
@@ -100,9 +101,16 @@ async def text_solve_task(text: str = Form(...), user_id: str = Form(...)):
     print("TEXT SOLVE TASK", text)
     processing = await db.proceed_processing(user_id)
     if processing:
-        answer = await gemini_solver.generate_text(text)
-        await db.insert_solution(user_id=user_id, file_path="", solution=answer)
-        return {"message": "Task solved", "answer": answer}
+        try:
+            answer = await solver.generate_text_solution(text)
+            await db.insert_solution(user_id=user_id, file_path="", solution=answer)
+            return {"message": "Task solved", "answer": answer}
+        except Exception as e:
+            # use Gemini as fallback
+            print(f"Error with TaskSolverGPT: {e}. Falling back to GeminiSolver.")
+            answer = await gemini_solver.generate_text(text)
+            await db.insert_solution(user_id=user_id, file_path="", solution=answer)
+            return {"message": "Task solved", "answer": answer}
     else:
         return {
             "message": "Daily limit exceeded",

@@ -1,4 +1,4 @@
-GPT_MODEL = "gpt-4o"
+GPT_MODEL = "gpt-5-mini-2025-08-07"
 GEMINI_MODEL = "gemini-2.5-flash"
 
 DOWNLOAD_ENDPOINT = "/tasker/api/download_image"
@@ -173,36 +173,50 @@ Output the solutions in the following JSON format, using "type" and "content" fi
 }
 """
 
-TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top professor of STEM subjects.
+LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor.
 You are a best professor at the university. You need to help students to solve the following problems.
-Return the solutions in language of the tasks for the following problems in json format.
+Return the solutions in language of the tasks for the following problems in JSON format.
 Full solution must be in language of the tasks.
-Responds always must be in Markdown format.
-Output the solutions in the following JSON format:
-    {
-        "solutions": [
-            {
-                "problem": "problem_1",
-                "steps": [
-                    "step_1",
-                    "step_2",
-                    ...
-                ],
-                "solution": "solution_1",
-            },
-            {
-                "problem": "problem_2",
-                "steps": [
-                    "step_1",
-                    "step_2",
-                    ...
-                ],
-                "solution": "solution_2",
-            },
-            ...
-        ]
-    }
+
+CRITICAL LaTeX Requirements:
+1. DO NOT use \\cancel command - it may not be available
+2. DO NOT use \\newline - use proper paragraph breaks instead
+3. For fractions, always use \\dfrac or \\frac, never \\tfrac in display mode
+4. Ensure all Cyrillic text is in "text" type fields, not "math" type
+5. In math mode, avoid mixing Cyrillic with LaTeX commands
+6. Use proper LaTeX escaping: all backslashes must be single backslashes in the JSON
+
+Math Presentation Style:
+1. Default to Rendered LaTeX: Always use LaTeX for math. Use double dollar signs for display equations and single dollar signs for inline math.
+2. Inline vs. Display: Prefer inline math for short equations, display math for longer/complex ones.
+3. Spacing: Ensure exactly one blank line after display math.
+
+Output the solutions in the following JSON format, using "type" and "content" fields:
+{
+    "solutions": [
+        {
+            "problem": "Описание задачи",
+            "steps": [
+                {
+                    "type": "text",
+                    "content": "Объяснение или шаг решения"
+                },
+                {
+                    "type": "math",
+                    "content": "Математическое выражение в LaTeX"
+                }
+            ],
+            "solution": [
+                {
+                    "type": "math",
+                    "content": "Финальный ответ в LaTeX"
+                }
+            ]
+        }
+    ]
+}
 """
+
 
 LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """
 You are the best copywriter in the world. You need to rewrite the following Latex text in a more understandable way without using Latex.
@@ -233,4 +247,103 @@ Output the solutions in the following JSON format:
         ]
     }
 """
+
+TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are the best professor of STEM subjects.
+You are a best professor at the university. You need to help students to solve the following problems
+Return the solutions in language of tasks for the following problems in json format.
+If you see that task in russian language, solution must be in russian language too.
+Or if you see that task without any language, solution must be in russian language.
+Dont ask a questions at the end, just solve the problems.
+Your answers must be short and to the point.
+Output should be in Markdown format.
+Output the solutions in the following JSON format:
+    Output the solutions in the following JSON format:
+    {
+        "solutions": [
+            {
+                "problem": "problem_1",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_1",
+            },
+            {
+                "problem": "problem_2",
+                "steps": [
+                    "step_1",
+                    "step_2",
+                    ...
+                ],
+                "solution": "solution_2",
+            },
+            ...
+        ]
+    }
+"""
+
+OPENAI_OUTPUT_FORMAT = {
+    "type": "json_schema",
+    "name": "task_solution",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "solutions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "problem": {
+                            "type": "string",
+                            "description": "Problem description in LaTeX format"
+                        },
+                        "steps": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["text", "math"]
+                                    },
+                                    "content": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["type", "content"],
+                                "additionalProperties": False
+                            }
+                        },
+                        "solution": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["text", "math"]
+                                    },
+                                    "content": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["type", "content"],
+                                "additionalProperties": False
+                            }
+                        }
+                    },
+                    "required": ["problem", "steps", "solution"],
+                    "additionalProperties": False
+                }
+            }
+        },
+        "required": ["solutions"],
+        "additionalProperties": False
+    }
+}
+
+
+
+
 PRICE_PER_IMAGE_IN_STARS = 5

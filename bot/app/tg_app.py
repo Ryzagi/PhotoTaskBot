@@ -591,7 +591,7 @@ def prepare_plain_text_document(solution):
     if isinstance(final_seq, (str, dict)):
         final_seq = [final_seq]
     for item in final_seq:
-        out.append(f"- {_extract_item_content(item)}")
+        out.append(f"{_extract_item_content(item)}")
     return "\n".join(out) + "\n"
 
 
@@ -671,6 +671,8 @@ def _extract_item_content(item):
 
 
 async def send_text_solution_to_user(message, answer):
+    MAX_MESSAGE_LENGTH = 4096
+
     if not answer:
         await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
         return
@@ -684,10 +686,9 @@ async def send_text_solution_to_user(message, answer):
 
         steps_seq = sol.get("steps", [])
         step_lines = []
-        for idx, step in enumerate(steps_seq, start=1):
+        for step in steps_seq:  # Removed enumerate
             raw = _extract_item_content(step)
-            line = f"{idx}. {raw}"
-            step_lines.append(escape_markdown_v2(line))
+            step_lines.append(escape_markdown_v2(raw))  # No "idx. " prefix
 
         final_seq = sol.get("solution", [])
         if isinstance(final_seq, (str, dict)):
@@ -696,35 +697,70 @@ async def send_text_solution_to_user(message, answer):
         final_lines = []
         for item in final_seq:
             raw = _extract_item_content(item)
-            # Detect Markdown table (contains pipes on multiple lines)
             if "|" in raw and "\n" in raw:
-                # Send table as fenced code block (need to escape backticks inside if any)
                 safe_table = raw.replace("`", "\\`")
                 final_lines.append("```\n" + safe_table + "\n```")
             else:
-                final_lines.append(escape_markdown_v2(f"- {raw}"))
+                final_lines.append(escape_markdown_v2(f"{raw}"))
 
         message_to_send = (
-                f"*Задание:* {problem}\n"
-                f"*Решение:*\n" + "\n".join(step_lines) + "\n"
-                                                          f"*Ответ:*\n" + "\n".join(final_lines)
+            f"*Задание:* {problem}\n\n"
+            f"*Решение:*\n" + "\n\n".join(step_lines) + "\n\n"  # Added blank lines for better spacing
+            f"*Ответ:*\n" + "\n".join(final_lines)
         )
 
-        await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
+        # Split message if it exceeds Telegram's limit
+        if len(message_to_send) <= MAX_MESSAGE_LENGTH:
+            await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
+            if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
+                try:
+                    await bot.send_message(
+                        ADMIN_TG_ID,
+                        f"Text solution for user {message.from_user.id} (@{message.from_user.username}):",
+                    )
+                    await bot.send_message(
+                        chat_id=ADMIN_TG_ID,
+                        text=message_to_send,
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
+                except exceptions.TelegramAPIError:
+                    pass
+        else:
+            # Split into chunks
+            chunks = []
+            current_chunk = ""
 
-        if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
-            try:
-                await bot.send_message(
-                    ADMIN_TG_ID,
-                    f"Text solution for user {message.from_user.id} (@{message.from_user.username}):",
-                )
-                await bot.send_message(
-                    chat_id=ADMIN_TG_ID,
-                    text=message_to_send,
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                )
-            except exceptions.TelegramAPIError:
-                pass
+            for line in message_to_send.split("\n"):
+                if len(current_chunk) + len(line) + 1 > MAX_MESSAGE_LENGTH:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    current_chunk = line
+                else:
+                    current_chunk += ("\n" if current_chunk else "") + line
+
+            if current_chunk:
+                chunks.append(current_chunk)
+
+            # Send chunks
+            for idx, chunk in enumerate(chunks, start=1):
+                header = f"*Часть {idx}/{len(chunks)}*\n\n" if len(chunks) > 1 else ""
+                await message.answer(header + chunk, parse_mode=ParseMode.MARKDOWN_V2)
+
+            if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
+                try:
+                    await bot.send_message(
+                        ADMIN_TG_ID,
+                        f"Text solution for user {message.from_user.id} (@{message.from_user.username}):",
+                    )
+                    for chunk in chunks:
+                        await bot.send_message(
+                            chat_id=ADMIN_TG_ID,
+                            text=chunk,
+                            parse_mode=ParseMode.MARKDOWN_V2,
+                        )
+                except exceptions.TelegramAPIError:
+                    pass
+
 
 
 async def process_text_message(message: Message):
