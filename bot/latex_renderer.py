@@ -38,20 +38,23 @@ def _strip_math_delimiters(s: str) -> str:
 _LATEX_HEADER = r"""
 \documentclass[preview]{standalone}
 \usepackage{amsmath, amssymb}
-\usepackage[T2A]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[russian]{babel}
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setdefaultlanguage{russian}
+\setmainfont{DejaVu Serif}
+\setsansfont{DejaVu Sans}
+\setmonofont{DejaVu Sans Mono}
 \usepackage{enumitem}
 \setlength{\parindent}{0pt}
 \begin{document}
 """
+
 
 _LATEX_FOOTER = r"""
 \end{document}
 """
 
 def _escape_text(text: str) -> str:
-    # Escape minimal set (not inside math)
     replace = {
         "&": r"\&",
         "%": r"\%",
@@ -59,22 +62,35 @@ def _escape_text(text: str) -> str:
         "#": r"\#",
         "_": r"\_",
         "~": r"\textasciitilde{}",
-        "^": r"\^{}",
     }
     for k, v in replace.items():
         text = text.replace(k, v)
     return text
 
-_MATH_BLOCK_RE = re.compile(r"(\$.*?\$|\\\(.*?\\\)|\\\[.*?\\\])", re.DOTALL)
+def _validate_text_content(content: str) -> str:
+    """Warn if LaTeX commands appear outside math mode"""
+    # Check for bare LaTeX operators in text
+    bare_operators = re.findall(r'(?<!\$)\\(ge|le|neq|cdot|times|frac)(?!\$)', content)
+    if bare_operators:
+        print(f"WARNING: Bare LaTeX operators found: {bare_operators}")
+        print(f"Content: {content[:100]}")
+    return content
 
+
+_MATH_BLOCK_RE = re.compile(
+    r'(\$+[^\$]+\$+|\\\([^\)]+\\\)|\\\[[^\]]+\\\])',
+    re.DOTALL
+)
 def _process_mixed(text: str) -> str:
+    """Split text into math and non-math parts, escape only non-math"""
     parts = _MATH_BLOCK_RE.split(text)
     out = []
     for p in parts:
+        # Check if this part is a math delimiter
         if _MATH_BLOCK_RE.fullmatch(p):
-            out.append(p)  # keep math
+            out.append(p)  # keep math as-is
         else:
-            out.append(_escape_text(p))
+            out.append(_escape_text(p))  # escape special chars
     return "".join(out)
 
 def build_latex(solution: Dict[str, Any]) -> str:
@@ -87,7 +103,8 @@ def build_latex(solution: Dict[str, Any]) -> str:
             content = _strip_math_delimiters(step["content"])
             lines.append(r"\item $" + content + r"$")
         else:
-            lines.append(r"\item " + _process_mixed(_sanitize_user_text(step["content"])))
+            validated = _validate_text_content(step["content"])
+            lines.append(r"\item " + _process_mixed(_sanitize_user_text(validated)))
     lines.append(r"\end{enumerate}")
     lines.append(r"\textbf{Ответ:}\\[-2pt]")
     lines.append(r"\begin{enumerate}[leftmargin=*,nosep]")
@@ -130,13 +147,20 @@ class LatexRenderer:
             tex_path = os.path.join(tmp, "doc.tex")
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(latex_code)
-            # Compile (XeLaTeX kept; add -no-shell-escape)
+
             cmd = ["xelatex", "-no-shell-escape", "-interaction=nonstopmode", "doc.tex"]
-            env = {**os.environ, "HOME": "/tmp"}  # restrict if needed
+            env = {
+                **os.environ,
+                "HOME": "/tmp",
+                "TEXMFVAR": "/tmp/texmf-var",
+                "TEXMFCONFIG": "/tmp/texmf-config"
+            }
+
             try:
-                subprocess.run(
+                result = subprocess.run(
                     cmd,
                     cwd=tmp,
+                    env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     check=True,
@@ -145,11 +169,18 @@ class LatexRenderer:
             except subprocess.TimeoutExpired as e:
                 raise LatexCompilationError("LaTeX timeout", "", "") from e
             except subprocess.CalledProcessError as e:
-                raise LatexCompilationError(
-                    "LaTeX failed",
-                    e.stdout.decode("utf-8", "ignore"),
-                    e.stderr.decode("utf-8", "ignore"),
-                ) from e
+                stdout = e.stdout.decode("utf-8", "ignore")
+                stderr = e.stderr.decode("utf-8", "ignore")
+
+                # Log the full error for debugging
+                print(f"XeLaTeX failed with exit code {e.returncode}")
+                print(f"STDOUT:\n{stdout}")
+                print(f"STDERR:\n{stderr}")
+
+                # Also log the generated LaTeX code
+                print(f"Generated LaTeX:\n{latex_code[:1000]}")
+
+                raise LatexCompilationError("LaTeX failed", stdout, stderr) from e
 
             pdf_path = os.path.join(tmp, "doc.pdf")
             if not os.path.exists(pdf_path):

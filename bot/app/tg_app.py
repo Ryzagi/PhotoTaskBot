@@ -15,6 +15,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
 from aiogram.types import Message, BufferedInputFile, InputFile
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiohttp import ClientTimeout
 from bot.constants import (
     DOWNLOAD_ENDPOINT,
@@ -44,6 +45,7 @@ MD_V2_SPECIALS = r"_*[]()~`>#+-=|{}.!\\"
 
 _MD_V2_REGEX = re.compile(r"([_*[\]()~`>#+\-=|{}.!\\])")
 
+
 def pick_latex_engine():
     """
     Determine which LaTeX engine is available.
@@ -52,7 +54,7 @@ def pick_latex_engine():
     candidates = []
     if LATEX_ENGINE_ENV:
         candidates.append(LATEX_ENGINE_ENV)
-    candidates += ["xelatex", "lualatex", "pdflatex"]
+    candidates += ["xelatex", "xelatex", "lualatex", "pdflatex"]
     for eng in candidates:
         if shutil.which(eng):
             return eng
@@ -88,15 +90,17 @@ def build_latex_header(engine: str, minimal: bool = False) -> str:
     else:
         extra = "" if minimal else "\n\\usepackage{icomma}"
         return (
-            "\\documentclass[preview]{standalone}\n"
-            "\\usepackage[T2A]{fontenc}\n"
-            "\\usepackage[utf8]{inputenc}\n"
-            "\\usepackage[russian,english]{babel}\n"
-            "\\usepackage{amsmath,amssymb}" + extra + "\n"
-            "\\begin{document}\n"
+                "\\documentclass[preview]{standalone}\n"
+                "\\usepackage[T2A]{fontenc}\n"
+                "\\usepackage[utf8]{inputenc}\n"
+                "\\usepackage[russian,english]{babel}\n"
+                "\\usepackage{amsmath,amssymb}" + extra + "\n"
+                                                          "\\begin{document}\n"
         )
 
+
 LATEX_FOOTER = "\\end{document}\n"
+
 
 def make_solution_body(solution) -> str:
     lines = []
@@ -119,8 +123,10 @@ def make_solution_body(solution) -> str:
     lines.append(r"\end{enumerate}")
     return "\n".join(lines)
 
+
 def build_full_latex(solution, engine: str, minimal: bool = False) -> str:
     return build_latex_header(engine, minimal=minimal) + make_solution_body(solution) + LATEX_FOOTER
+
 
 def compile_latex(latex_code: str, engine: str):
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -131,27 +137,26 @@ def compile_latex(latex_code: str, engine: str):
         cmd = [engine, "-interaction=nonstopmode", "-halt-on-error", "-output-directory", temp_dir, tex_path]
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if proc.returncode != 0:
-            raise RuntimeError(f"{engine} failed: {proc.stderr.decode('utf-8','ignore')[:500]}")
+            raise RuntimeError(f"{engine} failed: {proc.stderr.decode('utf-8', 'ignore')[:500]}")
 
         pdf_path = os.path.join(temp_dir, "doc.pdf")
         if not os.path.exists(pdf_path):
             raise RuntimeError("PDF not produced")
 
-        # Convert to PNG (higher DPI for readability)
         png_base = os.path.join(temp_dir, "out")
         conv = subprocess.run(["pdftoppm", "-png", "-singlefile", "-r", "200", pdf_path, png_base],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if conv.returncode != 0:
-            raise RuntimeError(f"pdftoppm failed: {conv.stderr.decode('utf-8','ignore')[:400]}")
+            raise RuntimeError(f"pdftoppm failed: {conv.stderr.decode('utf-8', 'ignore')[:400]}")
         with open(png_base + ".png", "rb") as img:
             return img.read()
+
 
 def render_solution_to_png(solution):
     engine = pick_latex_engine()
     if not engine:
         raise RuntimeError("No LaTeX engine found (install xelatex or pdflatex).")
     errors = []
-    # Attempt rich header first (fontspec if engine supports)
     tries = [
         dict(minimal=False),
         dict(minimal=True)
@@ -163,7 +168,6 @@ def render_solution_to_png(solution):
         except Exception as e:
             errors.append(str(e))
             continue
-    # If using xelatex failed completely and pdflatex exists, fallback to pdflatex explicitly
     if engine != "pdflatex" and shutil.which("pdflatex"):
         try:
             code = build_full_latex(solution, "pdflatex", minimal=True)
@@ -172,8 +176,8 @@ def render_solution_to_png(solution):
             errors.append(str(e))
     raise RuntimeError("All LaTeX render attempts failed:\n" + "\n---\n".join(errors))
 
+
 async def save_image(path, photo_io, user_id):
-    # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
     async with aiohttp.ClientSession() as session:
         data = aiohttp.FormData()
         data.add_field("image_path", path)
@@ -183,12 +187,11 @@ async def save_image(path, photo_io, user_id):
         data.add_field("user_id", user_id)
 
         async with session.post(
-            f"http://{NETWORK}:8000{DOWNLOAD_ENDPOINT}", data=data
+                f"http://{NETWORK}:8000{DOWNLOAD_ENDPOINT}", data=data
         ) as response:
             answer = await response.json()
             print("Answer", answer)
             if "error" in answer:
-                # Step 2: Replace single quotes with double quotes for valid JSON format
                 status_code_str = answer["error"].replace("'", '"')
                 print("Status code str", status_code_str)
                 status_code = json.loads(status_code_str)
@@ -210,7 +213,7 @@ async def text_solution(text, user_id):
         data.add_field("user_id", user_id)
 
         async with session.post(
-            f"http://{NETWORK}:8000{TEXT_SOLVE_ENDPOINT}", data=data
+                f"http://{NETWORK}:8000{TEXT_SOLVE_ENDPOINT}", data=data
         ) as response:
             answer = await response.json()
             print("Answer", answer)
@@ -232,7 +235,7 @@ async def latex_to_text_solution(latex, user_id):
         data.add_field("user_id", user_id)
 
         async with session.post(
-            f"http://{NETWORK}:8000{LATEX_TO_TEXT_SOLVE_ENDPOINT}", data=data
+                f"http://{NETWORK}:8000{LATEX_TO_TEXT_SOLVE_ENDPOINT}", data=data
         ) as response:
             answer = await response.json()
             if response.status != 200:
@@ -245,8 +248,6 @@ async def latex_to_text_solution(latex, user_id):
 
 
 async def get_solution(path, photo_io, user_id):
-    # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
-
     async with aiohttp.ClientSession(timeout=ClientTimeout(5 * 60)) as session:
         data = aiohttp.FormData()
         data.add_field("image_path", path)
@@ -256,7 +257,7 @@ async def get_solution(path, photo_io, user_id):
         data.add_field("user_id", user_id)
 
         async with session.post(
-            f"http://{NETWORK}:8000{SOLVE_ENDPOINT}", data=data
+                f"http://{NETWORK}:8000{SOLVE_ENDPOINT}", data=data
         ) as response:
             answer = await response.json()
             if response.status != 200:
@@ -269,15 +270,13 @@ async def get_solution(path, photo_io, user_id):
 
 
 async def get_exist_solution(path, user_id):
-    # photo_io.seek(0)  # Ensure file pointer is at the beginning of the file
-
     async with aiohttp.ClientSession(timeout=ClientTimeout(5 * 60)) as session:
         data = aiohttp.FormData()
         data.add_field("image_path", path)
         data.add_field("user_id", user_id)
 
         async with session.post(
-            f"http://{NETWORK}:8000{GET_EXIST_SOLUTION_ENDPOINT}", data=data
+                f"http://{NETWORK}:8000{GET_EXIST_SOLUTION_ENDPOINT}", data=data
         ) as response:
             answer = await response.json()
             print("Answer", answer)
@@ -291,14 +290,13 @@ async def get_exist_solution(path, user_id):
 
 
 def _prepare_latex_document(solution):
-    # LaTeX document header and footer with XeLaTeX support
     latex_header = r"""
 \documentclass[preview]{standalone}
 \usepackage{fontspec}
 \usepackage{amsmath, amssymb}
 \usepackage{polyglossia}
 \setdefaultlanguage{russian}
-\setmainfont{Times New Roman} % Use a font that is installed
+\setmainfont{Times New Roman}
 \newfontfamily\cyrillicfont{Times New Roman}
 \newfontfamily\cyrillicfontsf{Arial}
 \newfontfamily\cyrillicfonttt{Courier New}
@@ -309,24 +307,19 @@ def _prepare_latex_document(solution):
 \end{document}
 """
 
-    # Function to escape LaTeX special characters
     def escape_latex(s):
         return re.sub(r"([%$&#_^{}~^\\])", r"\\\1", s)
 
-    # Combine steps into LaTeX code
     content = ""
 
-    # Add problem statement
     problem_text = escape_latex(solution["problem"])
     content += r"\textbf{Problem:}\\ " + problem_text + r"\\[10pt]"
 
-    # Add steps
     content += r"\textbf{Solution Steps:}\\"
     for step in solution["steps"]:
         step_text = escape_latex(step)
         content += step_text + r"\\[5pt]"
 
-    # Add final solution
     content += r"\textbf{Final Solution:}\\"
 
     if isinstance(solution["solution"], dict):
@@ -334,35 +327,17 @@ def _prepare_latex_document(solution):
         for key, value in solution["solution"].items():
             key_escaped = escape_latex(str(key))
             value_escaped = escape_latex(str(value))
-            # Wrap the key with \text{} to ensure it's treated as text
             content += f"\\text{{{key_escaped}}} &= {value_escaped} \\\\"
         content += r"\end{align*}"
     else:
         solution_text = escape_latex(solution["solution"])
         content += r"\[" + solution_text + r"\]"
 
-    # Combine all parts
     full_latex = latex_header + content + latex_footer
     return full_latex
 
 
-#def strip_math_delimiters(s):
-#    """Remove math delimiters from a string."""
-#    s = s.strip()
-#    if s.startswith("$$") and s.endswith("$$"):
-#        return s[2:-2].strip()
-#    elif s.startswith("$") and s.endswith("$"):
-#        return s[1:-1].strip()
-#    elif s.startswith("\\[") and s.endswith("\\]"):
-#        return s[2:-2].strip()
-#    elif s.startswith("\\(") and s.endswith("\\)"):
-#        return s[2:-2].strip()
-#    else:
-#        return s
-
-
 def escape_latex_special_chars(text: str) -> str:
-    # Removed caret ^ (DO NOT escape in normal text; math cares about it)
     special = {
         "&": r"\&",
         "%": r"\%",
@@ -370,16 +345,16 @@ def escape_latex_special_chars(text: str) -> str:
         "#": r"\#",
         "_": r"\_",
         "~": r"\textasciitilde{}",
-        # Do not escape ^ or backslash here
     }
     for k, v in special.items():
         text = text.replace(k, v)
     return text
 
+
 _MATH_BLOCK_RE = re.compile(r"(\$\$.*?\$\$|\$.*?\$|\\\[.*?\\\]|\\\(.*?\\\))", re.DOTALL)
 
+
 def normalize_display_math(text: str) -> str:
-    # Convert $$...$$ to \[...\] to avoid nested $ parsing ambiguity
     return re.sub(r"\$\$(.*?)\$\$", r"\\[\1\\]", text, flags=re.DOTALL)
 
 
@@ -395,14 +370,15 @@ def process_text_with_math(text: str) -> str:
         if not part:
             continue
         if _MATH_BLOCK_RE.fullmatch(part):
-            out.append(part)          # raw math
+            out.append(part)
         else:
             out.append(escape_latex_special_chars(part))
     return "".join(out)
 
+
 def strip_math_delimiters(s: str) -> str:
     s = s.strip()
-    for a, b in (("$$","$$"), ("\\[","\\]"), ("\\(","\\)"), ("$","$")):
+    for a, b in (("$$", "$$"), ("\\[", "\\]"), ("\\(", "\\)"), ("$", "$")):
         if s.startswith(a) and s.endswith(b):
             return s[len(a):-len(b)].strip()
     return s
@@ -410,15 +386,14 @@ def strip_math_delimiters(s: str) -> str:
 
 def prepare_latex_document(solution):
     """Prepare the full LaTeX document for a solution."""
-    # LaTeX document header and footer with XeLaTeX support
     latex_header = r"""
         \documentclass[preview]{standalone}
         \usepackage{fontspec}
         \usepackage{amsmath, amssymb}
         \usepackage{polyglossia}
-        \usepackage{icomma} % Include this package
+        \usepackage{icomma}
         \setdefaultlanguage{russian}
-        \setmainfont{Liberation Serif} % Use Liberation fonts
+        \setmainfont{Liberation Serif}
         \newfontfamily\cyrillicfont{Liberation Serif}
         \newfontfamily\cyrillicfontsf{Liberation Sans}
         \newfontfamily\cyrillicfonttt{Liberation Mono}
@@ -431,11 +406,9 @@ def prepare_latex_document(solution):
 
     content = ""
 
-    # Add problem statement
     problem_text = process_text_with_math(solution["problem"])
     content += r"\textbf{Задание:}\\ " + problem_text + r"\\[10pt]" + "\n"
 
-    # Add steps
     content += r"\textbf{Решение:}\\[5pt]" + "\n"
     content += r"\begin{enumerate}" + "\n"
     for step in solution["steps"]:
@@ -443,12 +416,10 @@ def prepare_latex_document(solution):
             step_content = strip_math_delimiters(step["content"])
             content += r"\item $" + step_content + r"$" + "\n"
         else:
-            # Process text content with embedded math expressions
             step_content = process_text_with_math(step["content"])
             content += r"\item " + step_content + "\n"
     content += r"\end{enumerate}" + "\n"
 
-    # Add final solution
     content += r"\textbf{Ответ:}\\[5pt]" + "\n"
     content += r"\begin{enumerate}" + "\n"
     for sol in solution["solution"]:
@@ -460,7 +431,6 @@ def prepare_latex_document(solution):
             content += r"\item " + sol_content + "\n"
     content += r"\end{enumerate}" + "\n"
 
-    # Combine all parts
     full_latex = latex_header + content + latex_footer
     return full_latex
 
@@ -471,7 +441,6 @@ def render_latex_to_image(latex_code):
         with open(tex_file, "w", encoding="utf-8") as f:
             f.write(latex_code)
 
-        # Compile LaTeX document using xelatex
         process = subprocess.Popen(
             [
                 "xelatex",
@@ -490,14 +459,11 @@ def render_latex_to_image(latex_code):
             print(f"Return code: {process.returncode}")
             print(f"stdout: {stdout.decode('utf-8')}")
             print(f"stderr: {stderr.decode('utf-8')}")
-            # Print the LaTeX code for debugging
             print("LaTeX code:")
             print(latex_code)
             raise Exception("LaTeX compilation failed")
 
         pdf_file = os.path.join(temp_dir, "document.pdf")
-        # Convert PDF to PNG using ImageMagick's `convert` or `pdftoppm`
-        # Here's an example using `pdftoppm`:
         process = subprocess.Popen(
             [
                 "pdftoppm",
@@ -526,7 +492,6 @@ def render_latex_to_image(latex_code):
 
 
 def regenerate_latex(solution):
-    # Build simplified doc (no fontspec/polyglossia to reduce failures)
     header = r"""
 \documentclass[preview]{standalone}
 \usepackage{amsmath,amssymb}
@@ -557,26 +522,35 @@ def regenerate_latex(solution):
     return header + "\n".join(body) + footer
 
 
+from bot.latex_renderer import latex_renderer, LatexCompilationError
+
+
 async def send_solution_to_user(message, answer):
     if not answer:
         await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
         return
+
     if isinstance(answer, str):
         answer = json.loads(answer)
+
     for idx, solution in enumerate(answer.get("solutions", []), start=1):
         try:
-            img = render_solution_to_png(solution)
+            # Use latex_renderer instead of local functions
+            img = await latex_renderer.render_solution(solution)
             file = BufferedInputFile(img, filename=f"solution_{idx}.png")
             await message.answer_photo(file, caption=f"Решение {idx}")
             await bot.send_photo(
                 chat_id=ADMIN_TG_ID,
                 photo=file,
-                caption=f"Solution image for the user: {message.from_user.id}, nickname: {message.from_user.username}",
+                caption=f"Solution for user: {message.from_user.id}, @{message.from_user.username}",
             )
+        except LatexCompilationError as e:
+            print(f"LaTeX error: {str(e)}\nSTDOUT: {e.stdout[:500]}\nSTDERR: {e.stderr[:500]}")
+            await message.answer(f"Проблема с LaTeX. Отправляю текст:")
+            await send_text_solution_to_user(message, json.dumps({"solutions": [solution]}))
         except Exception as e:
-            # Plain text fallback with notice
-            await message.answer(f"Проблема с LaTeX ({e}). Отправляю текст:")
-            await send_text_solution_to_user(message, json.dumps({"solutions":[solution]}))
+            logging.exception(f"Unexpected rendering error: {e}")
+            await send_text_solution_to_user(message, json.dumps({"solutions": [solution]}))
 
 
 def prepare_plain_text_document(solution):
@@ -595,48 +569,38 @@ def prepare_plain_text_document(solution):
     return "\n".join(out) + "\n"
 
 
-
-
-
 async def process_photo_message(message: Message):
-    user_id = message.from_user.id
-    time = message.date
-    # TODO change to .file_unique_id when it needs to be unique
-    file_name = f"{message.photo[-1].file_id}_{time}.png"
-    print(f"File name: {file_name}")
-    path = f"{user_id}/{file_name}"
-    # -1 (last image) is the largest photo, 0 is the smallest, downloaded into memory
-    photo_to_save = await bot.download(message.photo[-1])
-    print(f"Photo saved in memory")
-    message_text, status_code, error = await save_image(
-        path=path, photo_io=photo_to_save, user_id=str(user_id)
-    )
-    print(f"Message: {message_text}, Status code: {status_code}")
-    print(f"Error: {error}")
-    # Check if the user has already solved this task
-    # TODO uncoment this
-    # if status_code == 400:
-    #    await message.answer("Вы уже решали это задание. Вот решение:")
-    #    message_text = await get_exist_solution(path=path, user_id=str(user_id))
-    #    print(f"Message text: {message_text}")
-    #    await send_solution_to_user(message, message_text)
-    #    return None
-    if status_code == 429:
-        await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
-        return None
+    """Process photo message with parallel execution support."""
+    try:
+        user_id = message.from_user.id
+        time = message.date
+        file_name = f"{message.photo[-1].file_id}_{time}.png"
+        print(f"File name: {file_name}")
+        path = f"{user_id}/{file_name}"
+        photo_to_save = await bot.download(message.photo[-1])
+        print(f"Photo saved in memory")
+        message_text, status_code, error = await save_image(
+            path=path, photo_io=photo_to_save, user_id=str(user_id)
+        )
+        print(f"Message: {message_text}, Status code: {status_code}")
+        print(f"Error: {error}")
 
-    print(f"Status code: {status_code}")
+        if status_code == 429:
+            await message.answer(DAILY_LIMIT_EXCEEDED_MESSAGE)
+            return None
 
-    # Check the actual status code value
-    # if status_code != 200:
-    #    raise Exception(f"Failed to save image. Status code: {status_code}")
-    # This is a shitty way to do it, but I don't have time to fix it
-    photo_to_answer = await bot.download(message.photo[-1])
-    await message.answer(LOADING_MESSAGE)
-    answer = await get_solution(
-        path=path, photo_io=photo_to_answer, user_id=str(user_id)
-    )
-    await send_solution_to_user(message, answer)
+        print(f"Status code: {status_code}")
+
+        photo_to_answer = await bot.download(message.photo[-1])
+        await message.answer(LOADING_MESSAGE)
+        answer = await get_solution(
+            path=path, photo_io=photo_to_answer, user_id=str(user_id)
+        )
+        await send_solution_to_user(message, answer)
+    except Exception as e:
+        logging.exception(f"Error processing photo message: {e}")
+        await message.answer("Произошла ошибка при обработке фото. Попробуйте позже.")
+
 
 def escape_markdown_v2(text: str) -> str:
     """
@@ -644,9 +608,7 @@ def escape_markdown_v2(text: str) -> str:
     """
     if not isinstance(text, str):
         text = str(text)
-    # First normalize Windows newlines
     text = text.replace("\r\n", "\n")
-    # Escape required characters
     return _MD_V2_REGEX.sub(r"\\\1", text)
 
 
@@ -659,6 +621,7 @@ def escape_markdown(text):
         text = str(text)
     escape_chars = r"\_*[]()~`>#+-=|{}.!"
     return re.sub(r"([{}])".format(re.escape(escape_chars)), r"\\\1", text)
+
 
 def _extract_item_content(item):
     """
@@ -686,9 +649,9 @@ async def send_text_solution_to_user(message, answer):
 
         steps_seq = sol.get("steps", [])
         step_lines = []
-        for step in steps_seq:  # Removed enumerate
+        for step in steps_seq:
             raw = _extract_item_content(step)
-            step_lines.append(escape_markdown_v2(raw))  # No "idx. " prefix
+            step_lines.append(escape_markdown_v2(raw))
 
         final_seq = sol.get("solution", [])
         if isinstance(final_seq, (str, dict)):
@@ -704,12 +667,11 @@ async def send_text_solution_to_user(message, answer):
                 final_lines.append(escape_markdown_v2(f"{raw}"))
 
         message_to_send = (
-            f"*Задание:* {problem}\n\n"
-            f"*Решение:*\n" + "\n\n".join(step_lines) + "\n\n"  # Added blank lines for better spacing
-            f"*Ответ:*\n" + "\n".join(final_lines)
+                f"*Задание:* {problem}\n\n"
+                f"*Решение:*\n" + "\n\n".join(step_lines) + "\n\n"
+                                                            f"*Ответ:*\n" + "\n".join(final_lines)
         )
 
-        # Split message if it exceeds Telegram's limit
         if len(message_to_send) <= MAX_MESSAGE_LENGTH:
             await message.answer(message_to_send, parse_mode=ParseMode.MARKDOWN_V2)
             if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
@@ -726,7 +688,6 @@ async def send_text_solution_to_user(message, answer):
                 except exceptions.TelegramAPIError:
                     pass
         else:
-            # Split into chunks
             chunks = []
             current_chunk = ""
 
@@ -741,7 +702,6 @@ async def send_text_solution_to_user(message, answer):
             if current_chunk:
                 chunks.append(current_chunk)
 
-            # Send chunks
             for idx, chunk in enumerate(chunks, start=1):
                 header = f"*Часть {idx}/{len(chunks)}*\n\n" if len(chunks) > 1 else ""
                 await message.answer(header + chunk, parse_mode=ParseMode.MARKDOWN_V2)
@@ -762,21 +722,25 @@ async def send_text_solution_to_user(message, answer):
                     pass
 
 
-
 async def process_text_message(message: Message):
-    user_id = message.from_user.id
-    message_text = message.text
-    print(f"Message text: {message_text}")
-    await message.answer(LOADING_MESSAGE)
-    answer = await text_solution(message_text, user_id)
-    await send_text_solution_to_user(message, answer)
+    """Process text message with parallel execution support."""
+    try:
+        user_id = message.from_user.id
+        message_text = message.text
+        print(f"Message text: {message_text}")
+        await message.answer(LOADING_MESSAGE)
+        answer = await text_solution(message_text, user_id)
+        await send_text_solution_to_user(message, answer)
+    except Exception as e:
+        logging.exception(f"Error processing text message: {e}")
+        await message.answer("Произошла ошибка при обработке текста. Попробуйте позже.")
 
 
 async def notify_all_users(message: Message):
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            f"http://{NETWORK}:8000{GET_ALL_USER_IDS}",
-            json={"user_id": str(message.from_user.id)},
+                f"http://{NETWORK}:8000{GET_ALL_USER_IDS}",
+                json={"user_id": str(message.from_user.id)},
         ) as response:
             answer = await response.json()
             print(answer)
@@ -820,8 +784,8 @@ async def notify_user(message: Message):
 async def add_subscription_limits_for_all_users(limit):
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            f"http://{NETWORK}:8000{ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS}",
-            json={"user_id": ADMIN_TG_ID, "limit": limit},
+                f"http://{NETWORK}:8000{ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS}",
+                json={"user_id": ADMIN_TG_ID, "limit": limit},
         ) as response:
             answer = await response.json()
             print(answer)
@@ -851,12 +815,20 @@ async def add_subscription_limits_for_all_users(limit):
 async def main() -> None:
     locale = get_fluent_localization()
 
-    dp = Dispatcher()
+    # Use MemoryStorage for state management
+    dp = Dispatcher(storage=MemoryStorage())
 
     dp.message.outer_middleware(L10nMiddleware(locale))
     dp.pre_checkout_query.outer_middleware(L10nMiddleware(locale))
     dp.include_router(routers.router)
-    await dp.start_polling(bot, polling_timeout=30)
+
+    # Start polling with parallel processing enabled
+    await dp.start_polling(
+        bot,
+        polling_timeout=30,
+        handle_signals=True,
+        allowed_updates=dp.resolve_used_update_types()
+    )
 
 
 if __name__ == "__main__":

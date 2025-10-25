@@ -173,49 +173,53 @@ Output the solutions in the following JSON format, using "type" and "content" fi
 }
 """
 
-LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor.
-You are a best professor at the university. You need to help students to solve the following problems.
-Return the solutions in language of the tasks for the following problems in JSON format.
-Full solution must be in language of the tasks.
+LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor helping students solve STEM problems.
 
-CRITICAL LaTeX Requirements:
-1. DO NOT use \\cancel command - it may not be available
-2. DO NOT use \\newline - use proper paragraph breaks instead
-3. For fractions, always use \\dfrac or \\frac, never \\tfrac in display mode
-4. Ensure all Cyrillic text is in "text" type fields, not "math" type
-5. In math mode, avoid mixing Cyrillic with LaTeX commands
-6. Use proper LaTeX escaping: all backslashes must be single backslashes in the JSON
+CRITICAL LATEX FORMATTING RULES:
 
-Math Presentation Style:
-1. Default to Rendered LaTeX: Always use LaTeX for math. Use double dollar signs for display equations and single dollar signs for inline math.
-2. Inline vs. Display: Prefer inline math for short equations, display math for longer/complex ones.
-3. Spacing: Ensure exactly one blank line after display math.
+1. **Problem Field Format**:
+   - Wrap ALL math expressions in $ delimiters
+   - Use proper LaTeX syntax: $3^x$, $\\frac{a}{b}$, $x \\ge 0$
+   - Example: "Решите неравенство $3^x - \\frac{702}{3^x - 1} \\ge 0$"
 
-Output the solutions in the following JSON format, using "type" and "content" fields:
+2. **Steps/Solution Fields**:
+   - **type: "text"**: Explanatory text. Include inline math with proper spacing
+     - Correct: "значение $t \\ge 4$ удовлетворяет условию"
+     - Wrong: "значение $\\ge$ 4" or "значение \\ge 4"
+   - **type: "math"**: Pure LaTeX WITHOUT outer $ delimiters
+     - Example: "t - \\frac{702}{t-1} \\ge 0"
+
+3. **Inline Math Rules**:
+   - Comparison operators MUST be inside math mode with surrounding values
+   - Use: "$x \\ge 4$" not "$\\ge$ 4" or "\\ge 4"
+   - Use: "$a = b$" not "a = b"
+
+4. **Forbidden**:
+   - Never use: >=, <=, != (use \\ge, \\le, \\neq)
+   - Never use bare operators: "\\ge", "\\cdot" outside $...$
+   - Never use: \\cancel, \\newline, \\quad, \\;
+
+5. **Cyrillic Text**:
+   - Use only in "text" type fields
+   - Keep Cyrillic outside $...$ delimiters
+
+Example:
 {
-    "solutions": [
-        {
-            "problem": "Описание задачи",
-            "steps": [
-                {
-                    "type": "text",
-                    "content": "Объяснение или шаг решения"
-                },
-                {
-                    "type": "math",
-                    "content": "Математическое выражение в LaTeX"
-                }
-            ],
-            "solution": [
-                {
-                    "type": "math",
-                    "content": "Финальный ответ в LaTeX"
-                }
-            ]
-        }
+  "solutions": [{
+    "problem": "Решите уравнение $x^2 - 5x + 6 = 0$",
+    "steps": [
+      {"type": "text", "content": "Дискриминант $D = b^2 - 4ac$ равен"},
+      {"type": "math", "content": "D = 25 - 24 = 1"},
+      {"type": "text", "content": "Корни находим по формуле $x = \\frac{-b \\pm \\sqrt{D}}{2a}$"}
+    ],
+    "solution": [
+      {"type": "math", "content": "x_1 = 2, \\quad x_2 = 3"}
     ]
+  }]
 }
-"""
+
+Return in task language (Russian for Russian tasks)."""
+
 
 
 LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """
@@ -283,6 +287,7 @@ Output the solutions in the following JSON format:
     }
 """
 
+
 OPENAI_OUTPUT_FORMAT = {
     "type": "json_schema",
     "name": "task_solution",
@@ -296,7 +301,7 @@ OPENAI_OUTPUT_FORMAT = {
                     "properties": {
                         "problem": {
                             "type": "string",
-                            "description": "Problem description in LaTeX format"
+                            "description": "Problem statement with inline math wrapped in $ delimiters. Use LaTeX syntax: $3^x$, $\\frac{a}{b}$, $\\ge$, etc."
                         },
                         "steps": {
                             "type": "array",
@@ -308,7 +313,8 @@ OPENAI_OUTPUT_FORMAT = {
                                         "enum": ["text", "math"]
                                     },
                                     "content": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "description": "For 'text': plain text or text with inline math ($...$). For 'math': LaTeX expression without outer $ delimiters"
                                     }
                                 },
                                 "required": ["type", "content"],
@@ -342,6 +348,7 @@ OPENAI_OUTPUT_FORMAT = {
         "additionalProperties": False
     }
 }
+
 
 
 

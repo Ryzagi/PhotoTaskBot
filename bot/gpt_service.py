@@ -1,9 +1,11 @@
+import asyncio
 import base64
 import json
 import time
 from json import JSONDecodeError
 from typing import Dict
 
+import httpx
 from openai import AsyncOpenAI
 
 from bot.constants import GPT_MODEL, TASK_HELPER_PROMPT_TEMPLATE_USER, TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER, \
@@ -12,12 +14,32 @@ from bot.constants import GPT_MODEL, TASK_HELPER_PROMPT_TEMPLATE_USER, TEXT_TASK
 
 class TaskSolverGPT:
     def __init__(self, openai_api_key: str):
+        http_client = httpx.AsyncClient(
+            limits=httpx.Limits(
+                max_connections=100,  # Total connection pool size
+                max_keepalive_connections=20  # Persistent connections
+            ),
+            timeout=60.0
+        )
         self.client = AsyncOpenAI(
             api_key=openai_api_key,
+            http_client=http_client,
+            max_retries=2
         )
 
     async def encode_image(self, photo_io):
-        photo_bytes = await photo_io.read()
+        """Encode image to base64, handling both sync and async file objects."""
+        if isinstance(photo_io, bytes):
+            photo_bytes = photo_io
+        elif hasattr(photo_io, 'read'):
+            # Check if it's an async reader (has async read method)
+            if asyncio.iscoroutinefunction(photo_io.read):
+                photo_bytes = await photo_io.read()
+            else:
+                photo_bytes = photo_io.read()
+        else:
+            raise ValueError(f"Unsupported photo_io type: {type(photo_io)}")
+
         return base64.b64encode(photo_bytes).decode("utf-8")
 
     async def _encode_image(self, image_path):
