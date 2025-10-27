@@ -177,40 +177,76 @@ LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor helping
 
 CRITICAL LATEX FORMATTING RULES:
 
-1. **Problem Field Format**:
+1. **Problem Field**:
    - Wrap ALL math expressions in $ delimiters
-   - Use proper LaTeX syntax: $3^x$, $\\frac{a}{b}$, $x \\ge 0$
    - Example: "Решите неравенство $3^x - \\frac{702}{3^x - 1} \\ge 0$"
 
-2. **Steps/Solution Fields**:
-   - **type: "text"**: Explanatory text. Include inline math with proper spacing
-     - Correct: "значение $t \\ge 4$ удовлетворяет условию"
-     - Wrong: "значение $\\ge$ 4" or "значение \\ge 4"
-   - **type: "math"**: Pure LaTeX WITHOUT outer $ delimiters
-     - Example: "t - \\frac{702}{t-1} \\ge 0"
+2. **Steps/Solution Fields - TYPE USAGE**:
 
-3. **Inline Math Rules**:
-   - Comparison operators MUST be inside math mode with surrounding values
-   - Use: "$x \\ge 4$" not "$\\ge$ 4" or "\\ge 4"
-   - Use: "$a = b$" not "a = b"
+   **Use "type": "text" for:**
+   - ANY content with Cyrillic (Russian) text
+   - Explanatory sentences, lists, descriptions
+   - Inline math with $...$ delimiters
+   - **LaTeX tables** (tabular environment)
+   - **ALWAYS properly close math with $** before punctuation
 
-4. **Forbidden**:
-   - Never use: >=, <=, != (use \\ge, \\le, \\neq)
-   - Never use bare operators: "\\ge", "\\cdot" outside $...$
-   - Never use: \\cancel, \\newline, \\quad, \\;
+   **Use "type": "math" ONLY for:**
+   - Pure mathematical expressions
+   - NO Cyrillic text, NO descriptive text
 
-5. **Cyrillic Text**:
-   - Use only in "text" type fields
-   - Keep Cyrillic outside $...$ delimiters
+3. **PUNCTUATION RULES**:
+   - **NEVER use `\\.` (backslash-dot)** - it's invalid in math mode
+   - Always write periods as plain `.` (not `\\.`)
+   - **ALWAYS close math expressions with `$` before punctuation**
+   - Correct: "$\\theta \\in [0, \\pi]$. Тогда..." (period AFTER closing $)
+   - Wrong: "$\\theta \\in [0, \\pi]\\. Тогда..." (backslash-dot invalid)
+   - Wrong: "$\\theta \\in [0, \\pi] Тогда$" (no $ closure before text)
 
-Example:
+4. **TABLE FORMATTING - CRITICAL FOR TABLE TASKS**:
+
+   When task contains "Заполните таблицу", "fill.*table", or "complete.*table":
+
+   **Generate ONE text item with complete table structure.**
+   
+   **Critical command syntax:**
+   - **ALWAYS write `\\footnotesize` correctly** (double backslash + footnotesize)
+   - NEVER write `\footnotesize` or corrupted versions
+   - NEVER use form feed characters (\x0c) or control codes
+
+   **Key rules:**
+   - ALWAYS use \\footnotesize for tables (required for readability)
+   - Keep answers brief (5-10 words per cell max)
+   - Use abbreviations: "Ж/д" instead of "Железные дороги"
+   - Split long lists with commas, not full sentences
+   - Use wider columns: p{5.5cm} or p{6cm} for better text wrapping
+   - First row should be headers with \\textbf{}
+
+   Example:
+   {
+     "type": "text",
+     "content": "\\footnotesize\\begin{tabular}{|l|p{5.5cm}|p{5.5cm}|p{5.5cm}|}\\n\\hline\\n\\textbf{Вопрос} & \\textbf{Нефть} & \\textbf{Газ} & \\textbf{Уголь} \\\\\\n\\hline\\n7. Запасы & Саудовская Аравия, Венесуэла & Россия, Иран, Катар & США, Россия, Китай \\\\\\n\\hline\\n\\end{tabular}"
+   }
+
+5. **Comparison Operators**:
+   - Always use: $\\ge$, $\\le$, $\\neq$ (inside $ delimiters)
+   - Never use: >=, <=, !=
+
+6. **Forbidden**:
+   - Never use "type": "math" for text with Cyrillic
+   - Never use: `\\.` (backslash-dot) - use plain `.`
+   - Never use: `\\,` outside math mode
+   - Never use: \\cancel, \\newline in text
+   - Never use bare operators outside $...$
+   - Never write long sentences in table cells
+
+Example for MATH problem with proper punctuation:
 {
   "solutions": [{
     "problem": "Решите уравнение $x^2 - 5x + 6 = 0$",
     "steps": [
-      {"type": "text", "content": "Дискриминант $D = b^2 - 4ac$ равен"},
-      {"type": "math", "content": "D = 25 - 24 = 1"},
-      {"type": "text", "content": "Корни находим по формуле $x = \\frac{-b \\pm \\sqrt{D}}{2a}$"}
+      {"type": "text", "content": "Вычислим дискриминант $D = b^2 - 4ac$."},
+      {"type": "math", "content": "D = (-5)^2 - 4 \\cdot 1 \\cdot 6 = 1"},
+      {"type": "text", "content": "Корни: $x = \\frac{-b \\pm \\sqrt{D}}{2a}$. Подставим значения."}
     ],
     "solution": [
       {"type": "math", "content": "x_1 = 2, \\quad x_2 = 3"}
@@ -218,7 +254,7 @@ Example:
   }]
 }
 
-Return in task language (Russian for Russian tasks)."""
+Return in task language."""
 
 
 
@@ -253,39 +289,75 @@ Output the solutions in the following JSON format:
 """
 
 TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are the best professor of STEM subjects.
-You are a best professor at the university. You need to help students to solve the following problems
+You are a best professor at the university. You need to help students to solve the following problems.
 Return the solutions in language of tasks for the following problems in json format.
 If you see that task in russian language, solution must be in russian language too.
 Or if you see that task without any language, solution must be in russian language.
-Dont ask a questions at the end, just solve the problems.
+Don't ask questions at the end, just solve the problems.
 Your answers must be short and to the point.
-Output should be in Markdown format.
+
+CRITICAL LATEX RULES FOR MARKDOWN OUTPUT:
+
+1. **Use proper LaTeX syntax**:
+   - Fractions: `\\frac{1}{4}` (NOT `\\tfrac`)
+   - Decimals: Use regular comma `0,5` or period `0.5` (NOT `0{,}5`)
+   - Powers: `2^{-1}` or `0.5^x`
+   - Comparisons: `\\ge`, `\\le`, `\\neq`
+
+2. **Inline math delimiters**:
+   - Always wrap math in single `$` signs
+   - Example: "Решим уравнение $0.5^x = \\frac{1}{4}$"
+
+3. **Type usage**:
+   - Use `"type": "text"` for ALL content (text + inline math)
+   - Never use `"type": "math"` in this format
+
+4. **Forbidden**:
+   - `\\tfrac`, `\\dfrac` - use `\\frac` only
+   - `{,}` for commas - use plain `,`
+   - Double backslashes in math - use single `\\`
+
+Example:
+{
+  "solutions": [{
+    "problem": "Решите уравнение $0.5^x = \\frac{1}{4}$",
+    "steps": [
+      {"type": "text", "content": "Представим $0.5 = \\frac{1}{2} = 2^{-1}$ и $\\frac{1}{4} = 2^{-2}$"},
+      {"type": "text", "content": "Получаем: $(2^{-1})^x = 2^{-2}$"},
+      {"type": "text", "content": "Следовательно: $2^{-x} = 2^{-2}$, откуда $-x = -2$"}
+    ],
+    "solution": [
+      {"type": "text", "content": "Ответ: $x = 2$"}
+    ]
+  }]
+}
+
 Output the solutions in the following JSON format:
-    Output the solutions in the following JSON format:
-    {
-        "solutions": [
-            {
-                "problem": "problem_1",
-                "steps": [
-                    "step_1",
-                    "step_2",
-                    ...
-                ],
-                "solution": "solution_1",
-            },
-            {
-                "problem": "problem_2",
-                "steps": [
-                    "step_1",
-                    "step_2",
-                    ...
-                ],
-                "solution": "solution_2",
-            },
-            ...
-        ]
-    }
+{
+    "solutions": [
+        {
+            "problem": "problem_1",
+            "steps": [
+                {
+                    "type": "text",
+                    "content": "step_1 with inline math $...$"
+                },
+                {
+                    "type": "text",
+                    "content": "step_2 with inline math $...$"
+                }
+            ],
+            "solution": [
+                {
+                    "type": "text",
+                    "content": "solution_1 with inline math $...$"
+                }
+            ]
+        }
+    ]
+}
 """
+
 
 
 OPENAI_OUTPUT_FORMAT = {

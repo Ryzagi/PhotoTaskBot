@@ -14,14 +14,17 @@ import subprocess
 LATEX_TIMEOUT_SEC = 15
 MAX_CONCURRENT_COMPILATIONS = 2
 
-_SANITIZE_PATTERN = re.compile(
-    r"""\\(input|include|write|openout|read|catcode|usepackage|def|loop|repeat|csname|newwrite|immediate)""",
-    re.IGNORECASE,
-)
 
+# Keep this function but don't use it in rendering (anymore - GPT rewrites all input)
 def _sanitize_user_text(text: str) -> str:
-    # Remove dangerous control sequences
-    return _SANITIZE_PATTERN.sub("", text)
+    """Remove dangerous LaTeX commands (unused - GPT rewrites all input)"""
+    pattern = re.compile(
+        r"""\\(input|include|write|openout|read|catcode|usepackage|def|loop|repeat|csname|newwrite|immediate|let|expandafter|makeatletter)\b""",
+        re.IGNORECASE,
+    )
+    return pattern.sub("", text)
+
+
 
 def _hash_solution(solution: Dict[str, Any]) -> str:
     m = hashlib.sha256()
@@ -36,7 +39,7 @@ def _strip_math_delimiters(s: str) -> str:
     return s
 
 _LATEX_HEADER = r"""
-\documentclass[preview]{standalone}
+\documentclass[preview,border=5pt]{standalone}
 \usepackage{amsmath, amssymb}
 \usepackage{fontspec}
 \usepackage{polyglossia}
@@ -45,9 +48,13 @@ _LATEX_HEADER = r"""
 \setsansfont{DejaVu Sans}
 \setmonofont{DejaVu Sans Mono}
 \usepackage{enumitem}
+\usepackage{geometry}
+\geometry{paperwidth=25cm,paperheight=20cm}
 \setlength{\parindent}{0pt}
 \begin{document}
 """
+
+
 
 
 _LATEX_FOOTER = r"""
@@ -81,41 +88,155 @@ _MATH_BLOCK_RE = re.compile(
     r'(\$+[^\$]+\$+|\\\([^\)]+\\\)|\\\[[^\]]+\\\])',
     re.DOTALL
 )
+
+
+def _validate_solution(solution: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate and clean GPT output"""
+    # Clean all content fields
+    for section in ["steps", "solution"]:
+        for item in solution.get(section, []):
+            if "content" in item:
+                # Remove control characters
+                item["content"] = re.sub(r'[\x00-\x1F\x7F]', '', item["content"])
+
+                # Fix common GPT errors
+                content = item["content"]
+                # Fix \x0c + char → \char
+                content = re.sub(r'\x0c([a-z])', r'\\\1', content)
+                item["content"] = content
+
+    return solution
+
+
+def _adjust_table_width(text: str) -> str:
+    """Reduce table column widths if total exceeds safe limits"""
+    # Match tabular column specs like {|l|p{6cm}|p{6cm}|}
+    match = re.search(r'\\begin\{tabular\}\{([^}]+)\}', text)
+    if not match:
+        return text
+
+    cols = match.group(1)
+    # Count p{Xcm} columns
+    p_cols = re.findall(r'p\{(\d+(?:\.\d+)?)cm\}', cols)
+
+    if len(p_cols) >= 2:
+        total_width = sum(float(w) for w in p_cols)
+        if total_width > 10:  # Too wide for A4-like preview
+            # Scale down to fit
+            scale = 10 / total_width
+            for old_width in p_cols:
+                new_width = float(old_width) * scale
+                cols = cols.replace(f'p{{{old_width}cm}}', f'p{{{new_width:.1f}cm}}', 1)
+            text = text.replace(match.group(1), cols)
+
+    return text
+
+
 def _process_mixed(text: str) -> str:
-    """Split text into math and non-math parts, escape only non-math"""
+    """Split text into math and non-math parts, escape only non-math and non-table content"""
+    # Remove control characters (including \x0c form feed)
+    text = re.sub(r'[\x00-\x1F\x7F]', '', text)
+
+    # Check if this is table content
+    if r'\begin{tabular}' in text:
+        text = _adjust_table_width(text)
+        return text
+
+    # Regular text processing...
     parts = _MATH_BLOCK_RE.split(text)
     out = []
     for p in parts:
-        # Check if this part is a math delimiter
         if _MATH_BLOCK_RE.fullmatch(p):
-            out.append(p)  # keep math as-is
+            out.append(p)
         else:
-            out.append(_escape_text(p))  # escape special chars
+            out.append(_escape_text(p))
     return "".join(out)
 
+
 def build_latex(solution: Dict[str, Any]) -> str:
-    problem = _process_mixed(_sanitize_user_text(solution["problem"]))
+    problem = _process_mixed(solution["problem"])
     lines = [r"\textbf{Задание:}\\", problem, r"\\[6pt]"]
+
     lines.append(r"\textbf{Решение:}\\[-2pt]")
-    lines.append(r"\begin{enumerate}[leftmargin=*,nosep]")
-    for step in solution["steps"]:
-        if step["type"] == "math":
-            content = _strip_math_delimiters(step["content"])
-            lines.append(r"\item $" + content + r"$")
-        else:
-            validated = _validate_text_content(step["content"])
-            lines.append(r"\item " + _process_mixed(_sanitize_user_text(validated)))
-    lines.append(r"\end{enumerate}")
-    lines.append(r"\textbf{Ответ:}\\[-2pt]")
-    lines.append(r"\begin{enumerate}[leftmargin=*,nosep]")
-    for sol in solution["solution"]:
-        if sol["type"] == "math":
-            content = _strip_math_delimiters(sol["content"])
-            lines.append(r"\item $" + content + r"$")
-        else:
-            lines.append(r"\item " + _process_mixed(_sanitize_user_text(sol["content"])))
-    lines.append(r"\end{enumerate}")
+    _append_items(lines, solution["steps"])
+
+    # Check if solution contains table
+    has_table_in_solution = any(
+        r'\begin{tabular}' in item.get("content", "")
+        for item in solution["solution"]
+    )
+
+    if not has_table_in_solution:
+        # Only add "Ответ:" header for non-table solutions
+        lines.append(r"\textbf{Ответ:}\\[-2pt]")
+
+    _append_items(lines, solution["solution"])
+
     return _LATEX_HEADER + "\n".join(lines) + _LATEX_FOOTER
+
+
+def _append_items(lines: list, items: list) -> None:
+    """
+    Append items with smart handling:
+    - Tables: rendered directly without enumerate
+    - Headers (\textbf): outside enumerate with spacing
+    - Math items: display math (no enumerate)
+    - Text items: inside enumerate with \item
+    """
+    # Check if any item is a table
+    has_table = any(r'\begin{tabular}' in item.get("content", "") for item in items)
+
+    if has_table:
+        # Table mode: render all content directly without enumerate
+        for item in items:
+            content = item["content"]
+            lines.append(_process_mixed(content))
+        return
+
+    # Regular mode: smart enumerate handling
+    in_enumerate = False
+
+    for item in items:
+        content = item["content"]
+
+        # Check if this is a section header
+        is_header = content.strip().startswith(r'\textbf')
+
+        if is_header:
+            # Close enumerate before header (only if open)
+            if in_enumerate:
+                lines.append(r"\end{enumerate}")
+                in_enumerate = False
+
+            # Add spacing before header
+            lines.append(r"\vspace{6pt}")
+            lines.append(content)
+
+        elif item["type"] == "math":
+            # Close enumerate before math (only if open)
+            if in_enumerate:
+                lines.append(r"\end{enumerate}")
+                in_enumerate = False
+
+            # Render as display math
+            content = _strip_math_delimiters(content)
+            lines.append(r"\[" + content + r"\]")
+
+        else:
+            # Text content - use enumerate
+            if not in_enumerate:
+                lines.append(r"\begin{enumerate}[leftmargin=*,nosep]")
+                in_enumerate = True
+
+            lines.append(r"\item " + _process_mixed(content))
+
+    # Close enumerate only if it's currently open
+    if in_enumerate:
+        lines.append(r"\end{enumerate}")
+
+
+
+
 
 class LatexCompilationError(Exception):
     def __init__(self, message: str, stdout: str = "", stderr: str = ""):
@@ -128,7 +249,10 @@ class LatexRenderer:
         self._sem = asyncio.Semaphore(MAX_CONCURRENT_COMPILATIONS)
 
     async def render_solution(self, solution: Dict[str, Any]) -> bytes:
-        # Cache per-solution content (structure hash)
+        # Validate and clean GPT output
+        solution = _validate_solution(solution)
+
+        # Cache per-solution content
         key = _hash_solution(solution)
         cached = _get_cache(key)
         if cached:

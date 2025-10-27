@@ -117,7 +117,7 @@ class TaskSolverGPT:
             model=GPT_MODEL,
             input=[
                 {"role": "system",
-                    "content": TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER,
+                    "content": LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER,
                 },
                 {
                     "role": "user",

@@ -223,7 +223,6 @@ async def text_solution(text, user_id):
                 )
             if answer["answer"] == 429:
                 return None
-    print("Text sent to Gemini")
     print(answer["answer"])
     return answer["answer"]
 
@@ -730,7 +729,9 @@ async def process_text_message(message: Message):
         print(f"Message text: {message_text}")
         await message.answer(LOADING_MESSAGE)
         answer = await text_solution(message_text, user_id)
-        await send_text_solution_to_user(message, answer)
+        #await send_text_solution_to_user(message, answer)
+        await send_solution_to_user(message, answer)
+
     except Exception as e:
         logging.exception(f"Error processing text message: {e}")
         await message.answer("Произошла ошибка при обработке текста. Попробуйте позже.")
