@@ -254,7 +254,8 @@ Example for MATH problem with proper punctuation:
   }]
 }
 
-Return in task language."""
+Your answer must be in the language of the problems. So if the problems are in Russian, respond in Russian, if in English, respond in English.
+"""
 
 
 
