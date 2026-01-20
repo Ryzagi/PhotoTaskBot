@@ -239,6 +239,12 @@ CRITICAL LATEX FORMATTING RULES:
    - Never use bare operators outside $...$
    - Never write long sentences in table cells
 
+7. **Language Consistency**:
+   - If problem is in Russian, solution must be in Russian
+   - If problem is in English, solution must be in English
+   - If problem has no language, solution must be in Russian
+   - Always keep consistent language throughout problem, steps, solution
+   
 Example for MATH problem with proper punctuation:
 {
   "solutions": [{
