@@ -10,20 +10,18 @@ COPY . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install .
 
-# Install LaTeX with complete font support
+# Install LaTeX with pdflatex support (not xelatex)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    texlive-xetex \
     texlive-latex-base \
     texlive-latex-extra \
     texlive-lang-cyrillic \
+    texlive-fonts-recommended \
     poppler-utils \
-    fontconfig \
-    fonts-dejavu \
-    fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure fonts - single run
-RUN fc-cache -fv && mktexlsr
+# Configure fonts
+RUN mktexlsr
+
 
 # Set the Python PATH to include /app
 ENV PYTHONPATH=/app
