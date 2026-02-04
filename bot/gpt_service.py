@@ -46,11 +46,26 @@ class TaskSolverGPT:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
-    async def solve(self, photo_io):
+    async def solve(self, photo_io, caption: str = None):
         start_time = time.time()
         print(type(photo_io))
         image_base64 = await self.encode_image(photo_io)
         print("Image started")
+
+        user_content = [
+            {
+                "type": "input_text",
+                "text": "You are a helpful university professor. Help me with my homework!",
+            },
+            {
+                "type": "input_image",
+                "image_url": f"data:image/jpeg;base64,{image_base64}",
+            },
+        ]
+
+        if caption:
+            user_content.append({"type": "input_text", "text": f"Context for task: {caption}"})
+
         response = await self.client.responses.create(
             model=GPT_MODEL,
             input=[
@@ -60,13 +75,7 @@ class TaskSolverGPT:
                 },
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "input_text", "text": "You are a helpful university professor. Help me with my homework!"},
-                        {
-                            "type": "input_image",
-                            "image_url": f"data:image/jpeg;base64,{image_base64}",
-                        },
-                    ],
+                    "content": user_content,
                 }
             ],
             reasoning={

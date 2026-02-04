@@ -36,18 +36,21 @@ gemini_solver = GeminiSolver(google_api_key=os.environ.get("GOOGLE_API_KEY"))
 
 @app.post(SOLVE_ENDPOINT)
 async def solve_task(
-    image_path: str = Form(...), file: UploadFile = File(...), user_id: str = Form(...)
+    image_path: str = Form(...),
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    text: str = Form(None),
 ):
     try:
         # Try using the GeminiSolver first
-        #answer = await gemini_solver.solve(file)
-        answer = await solver.solve(file)
+        # answer = await gemini_solver.solve(file)
+        answer = await solver.solve(file, caption=text)
     except Exception as e:
         # Log the error and fall back to TaskSolverGPT
         print(f"Error with GeminiSolver: {e}. Falling back to TaskSolverGPT.")
         print(type(file))
         await file.seek(0)
-        answer = await gemini_solver.solve(file)
+        answer = await gemini_solver.solve(file, caption=text)
     await db.update_last_processing_image_path(user_id=user_id, image_path=image_path)
     await db.insert_solution(user_id=user_id, file_path=image_path, solution=answer)
     print("GETTING SOLUTION", answer)

@@ -246,7 +246,7 @@ async def latex_to_text_solution(latex, user_id):
     return answer["answer"]
 
 
-async def get_solution(path, photo_io, user_id):
+async def get_solution(path, photo_io, user_id, text=None):
     async with aiohttp.ClientSession(timeout=ClientTimeout(5 * 60)) as session:
         data = aiohttp.FormData()
         data.add_field("image_path", path)
@@ -254,6 +254,8 @@ async def get_solution(path, photo_io, user_id):
             "file", photo_io, filename="image.jpg", content_type="image/jpeg"
         )
         data.add_field("user_id", user_id)
+        if text:
+            data.add_field("text", text)
 
         async with session.post(
                 f"http://{NETWORK}:8000{SOLVE_ENDPOINT}", data=data
@@ -590,10 +592,12 @@ async def process_photo_message(message: Message):
 
         print(f"Status code: {status_code}")
 
+        caption = message.caption
+
         photo_to_answer = await bot.download(message.photo[-1])
         await message.answer(LOADING_MESSAGE)
         answer = await get_solution(
-            path=path, photo_io=photo_to_answer, user_id=str(user_id)
+            path=path, photo_io=photo_to_answer, user_id=str(user_id), text=caption
         )
         await send_solution_to_user(message, answer)
     except Exception as e:

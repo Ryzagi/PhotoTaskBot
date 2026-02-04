@@ -31,14 +31,18 @@ class GeminiSolver:
             system_instruction=LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER,
         )
 
-    async def solve(self, photo_io):
+    async def solve(self, photo_io, caption: str = None) -> dict:
         start_time = time.time()
         # Read the file content asynchronously
         content = await photo_io.read()
         # Wrap it in a BytesIO object so PIL can open it
         image = Image.open(io.BytesIO(content))
 
-        result = self.model.generate_content([image, self._prompt])
+        content_list = [image, self._prompt]
+        if caption:
+            content_list.append(f"Context for task: {caption}")
+
+        result = self.model.generate_content(content_list)
         end_time = time.time()
         print(f"Time elapsed: {end_time - start_time}")
         print("GEMINI result:", result.text)
