@@ -2,20 +2,19 @@ import os
 from typing import Annotated
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, UploadFile, File
+from fastapi import FastAPI, File, Form, UploadFile
 
 from bot.constants import (
-    DOWNLOAD_ENDPOINT,
-    SOLVE_ENDPOINT,
     ADD_NEW_USER_ENDPOINT,
-    GET_EXIST_SOLUTION_ENDPOINT,
-    DONATE_ENDPOINT,
-    TEXT_SOLVE_ENDPOINT,
-    LATEX_TO_TEXT_SOLVE_ENDPOINT,
-    GET_CURRENT_BALANCE_ENDPOINT,
-    DAILY_LIMIT_EXCEEDED_MESSAGE,
-    GET_ALL_USER_IDS,
     ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS,
+    DONATE_ENDPOINT,
+    DOWNLOAD_ENDPOINT,
+    GET_ALL_USER_IDS,
+    GET_CURRENT_BALANCE_ENDPOINT,
+    GET_EXIST_SOLUTION_ENDPOINT,
+    LATEX_TO_TEXT_SOLVE_ENDPOINT,
+    SOLVE_ENDPOINT,
+    TEXT_SOLVE_ENDPOINT,
 )
 from bot.gemini_service import GeminiSolver
 from bot.gpt_service import TaskSolverGPT

@@ -3,13 +3,15 @@ import base64
 import json
 import time
 from json import JSONDecodeError
-from typing import Dict
 
 import httpx
 from openai import AsyncOpenAI
 
-from bot.constants import GPT_MODEL, TASK_HELPER_PROMPT_TEMPLATE_USER, TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER, \
-    OPENAI_OUTPUT_FORMAT, LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER
+from bot.constants import (
+    GPT_MODEL,
+    LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER,
+    OPENAI_OUTPUT_FORMAT,
+)
 
 
 class TaskSolverGPT:
@@ -96,7 +98,7 @@ class TaskSolverGPT:
     def parse_output_json(
         self,
         response: str,
-    ) -> Dict:
+    ) -> dict:
         """
         Parse response from OpenAI API.
         Args:

@@ -1,32 +1,30 @@
 import os
 
 import structlog
-from aiogram import F, Router
+from aiogram import Bot, F, Router, html
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import Command, CommandObject
-from aiogram.types import LabeledPrice, PreCheckoutQuery, CallbackQuery
-from fluent.runtime import FluentLocalization
+from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.types import CallbackQuery, LabeledPrice, Message, PreCheckoutQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram import Bot, html
-from aiogram.client.session import aiohttp
-from aiogram.filters import CommandStart
-from aiogram.types import Message
-
+from fluent.runtime import FluentLocalization
 from tg_app import (
-    process_photo_message,
-    process_text_message,
+    add_subscription_limits_for_all_users,
     notify_all_users,
     notify_user,
-    add_subscription_limits_for_all_users,
+    process_photo_message,
+    process_text_message,
 )
+
 from bot.constants import (
-    ADD_NEW_USER_ENDPOINT,
-    PRICE_PER_IMAGE_IN_STARS,
-    DONATE_ENDPOINT,
+    INTERNAL_BALANCE_ENDPOINT,
+    INTERNAL_TOPUP_ENDPOINT,
+    INTERNAL_USERS_UPSERT_ENDPOINT,
     NETWORK,
-    GET_CURRENT_BALANCE_ENDPOINT,
-    GET_ALL_USER_IDS,
+    PRICE_PER_IMAGE_IN_STARS,
 )
+from bot.internal_client import InternalClient
+
+INTERNAL_BASE = f"http://{NETWORK}:8000"
 
 router = Router()
 logger = structlog.get_logger()
@@ -49,16 +47,11 @@ async def command_start_handler(message: Message, l10n: FluentLocalization) -> N
         "is_bot": message.from_user.is_bot,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"http://{NETWORK}:8000{ADD_NEW_USER_ENDPOINT}", json=data
-        ) as response:
-            answer = await response.json()
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to add new user. Status code: {response.status}"
-                )
-        print(answer)
+    async with InternalClient(INTERNAL_BASE) as client:
+        status, answer = await client.post_json(INTERNAL_USERS_UPSERT_ENDPOINT, data)
+    if status != 200:
+        raise Exception(f"Failed to add new user. Status code: {status}")
+    print(answer)
     await message.answer(l10n.format_value("cmd-start"))
 
 
@@ -217,23 +210,14 @@ async def on_successful_payment(
         user_username=message.from_user.username,
     )
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"http://{NETWORK}:8000{DONATE_ENDPOINT}",
-                json={
-                    "user_id": message.from_user.id,
-                    "username": message.from_user.username,
-                    "first_name": message.from_user.first_name,
-                    "last_name": message.from_user.last_name,
-                    "language_code": message.from_user.language_code,
-                    "is_premium": message.from_user.is_premium,
-                    "is_bot": message.from_user.is_bot,
-                },
-            ) as response:
-                answer = await response.json()
-                if response.status != 200:
-                    raise Exception(f"Failed to donate. Status code: {response.status}")
-            print(answer)
+        async with InternalClient(INTERNAL_BASE) as client:
+            status, answer = await client.post_json(
+                INTERNAL_TOPUP_ENDPOINT,
+                {"telegram_user_id": message.from_user.id, "amount": 1},
+            )
+        if status != 200:
+            raise Exception(f"Failed to donate. Status code: {status}")
+        print(answer)
 
         await message.answer(
             l10n.format_value(
@@ -250,17 +234,14 @@ async def on_successful_payment(
 
 @router.message(Command("balance"))
 async def cmd_balance(message: Message, l10n: FluentLocalization):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            f"http://{NETWORK}:8000{GET_CURRENT_BALANCE_ENDPOINT}",
-            json={"user_id": str(message.from_user.id)},
-        ) as response:
-            answer = await response.json()
-            print("ANSWER", answer)
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get balance. Status code: {response.status}"
-                )
+    async with InternalClient(INTERNAL_BASE) as client:
+        status, answer = await client.post_form(
+            INTERNAL_BALANCE_ENDPOINT,
+            {"telegram_user_id": str(message.from_user.id)},
+        )
+    print("ANSWER", answer)
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to get balance. Status code: {status}")
     limits = answer["message"]
     daily_limit = limits[0]["daily_limit"]
     subscription_limit = limits[0]["subscription_limit"]

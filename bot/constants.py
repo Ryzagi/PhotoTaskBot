@@ -14,6 +14,21 @@ ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = (
     "/tasker/api/add_subscription_limits_for_all_users"
 )
 
+# New /internal/* surface — HMAC-authenticated. Migrate the bot's call sites
+# here over time using bot.internal_client.InternalClient. The legacy
+# /tasker/api/* paths above remain mounted for compatibility during transition.
+INTERNAL_USERS_UPSERT_ENDPOINT = "/internal/users"
+INTERNAL_LINK_CONFIRM_ENDPOINT = "/internal/auth/link/confirm"
+INTERNAL_SOLVE_IMAGE_ENDPOINT = "/internal/tasks/solve_image"
+INTERNAL_SOLVE_TEXT_ENDPOINT = "/internal/tasks/solve_text"
+INTERNAL_TOPUP_ENDPOINT = "/internal/topup"
+INTERNAL_UPLOAD_ENDPOINT = "/internal/upload"
+INTERNAL_GET_EXISTING_ENDPOINT = "/internal/tasks/get_existing"
+INTERNAL_LATEX_TO_TEXT_ENDPOINT = "/internal/tasks/latex_to_text"
+INTERNAL_BALANCE_ENDPOINT = "/internal/balance"
+INTERNAL_USERS_LIST_ENDPOINT = "/internal/users/list"
+INTERNAL_ADD_SUBS_FOR_ALL_ENDPOINT = "/internal/admin/add_subscription_for_all"
+
 NETWORK = "app"
 
 SUB_FOLDER = "/task_images/"

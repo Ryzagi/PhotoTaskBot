@@ -5,18 +5,17 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from functools import lru_cache
-from typing import Dict, Any, Optional
-
-import subprocess
+from typing import Any
 
 # Tune these
 LATEX_TIMEOUT_SEC = 20
 MAX_CONCURRENT_COMPILATIONS = 2
 
 
-def _hash_solution(solution: Dict[str, Any]) -> str:
+def _hash_solution(solution: dict[str, Any]) -> str:
     m = hashlib.sha256()
     m.update(repr(solution).encode("utf-8"))
     return m.hexdigest()
@@ -83,7 +82,7 @@ _MATH_BLOCK_RE = re.compile(
 )
 
 
-def _validate_solution(solution: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_solution(solution: dict[str, Any]) -> dict[str, Any]:
     """Validate and clean GPT output"""
     for section in ["steps", "solution"]:
         for item in solution.get(section, []):
@@ -134,7 +133,7 @@ def _process_mixed(text: str) -> str:
     return "".join(out)
 
 
-def build_latex(solution: Dict[str, Any]) -> str:
+def build_latex(solution: dict[str, Any]) -> str:
     lines = [r"\begin{sloppypar}"]
 
     problem = _process_mixed(solution.get("problem", ""))
@@ -196,7 +195,7 @@ class LatexRenderer:
     def __init__(self):
         self._sem = asyncio.Semaphore(MAX_CONCURRENT_COMPILATIONS)
 
-    async def render_solution(self, solution: Dict[str, Any]) -> bytes:
+    async def render_solution(self, solution: dict[str, Any]) -> bytes:
         solution = _validate_solution(solution)
         key = _hash_solution(solution)
         cached = _get_cache(key)
@@ -291,11 +290,11 @@ class LatexRenderer:
 
 
 @lru_cache(maxsize=256)
-def _get_cache(key: str) -> Optional[bytes]:
+def _get_cache(key: str) -> bytes | None:
     return _cache_store.get(key)
 
 
-_cache_store: Dict[str, bytes] = {}
+_cache_store: dict[str, bytes] = {}
 
 
 def _store_cache(key: str, data: bytes) -> None:

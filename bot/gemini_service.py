@@ -1,19 +1,17 @@
-import asyncio
 import io
 import json
 import time
 from json import JSONDecodeError
-from typing import Dict
 
 import google.generativeai as genai
+from PIL import Image
 
 from bot.constants import (
-    TASK_HELPER_PROMPT_TEMPLATE_USER,
     GEMINI_MODEL,
-    TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER,
     LATEX_TO_TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER,
+    TASK_HELPER_PROMPT_TEMPLATE_USER,
+    TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER,
 )
-from PIL import Image
 
 
 class GeminiSolver:
@@ -80,7 +78,7 @@ class GeminiSolver:
     def parse_output_json(
         self,
         response: str,
-    ) -> Dict:
+    ) -> dict:
         """
         Parse response from AI API.
         Args:
