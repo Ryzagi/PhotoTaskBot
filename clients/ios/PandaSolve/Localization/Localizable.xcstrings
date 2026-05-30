@@ -1,0 +1,13 @@
+{
+  "sourceLanguage" : "ru",
+  "version" : "1.0",
+  "strings" : {
+    "app_name" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "PandaSolve" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "PandaSolve" } } } },
+    "solve_cta" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "Решить задачу" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "Solve task" } } } },
+    "balance_daily_remaining" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сегодня осталось" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "Remaining today" } } } },
+    "history" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "История" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "History" } } } },
+    "settings" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } } } },
+    "solving" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "Решаю задачу 🐼" } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "Solving 🐼" } } } },
+    "solve_failed" : { "localizations" : { "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось решить. Попробуйте позже." } }, "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not solve. Try again later." } } } }
+  }
+}

@@ -300,19 +300,21 @@ class SupabaseService:
         return {"message": users["message"], "status_code": 200}
 
     # ─────────────────────────────────────────────────────────────────────
-    # New UUID-based methods, used by /v1/* routes and arq workers.
-    # These do not return the legacy {"message", "status_code"} envelope —
-    # they return typed values or raise. The auth_retry decorator above
-    # still applies (it wraps everything to catch JWT expiry).
+    # Mobile (/v1/*) methods. The domain key is `user_id text` — the same
+    # column the bot uses (Telegram id for bot users; the Supabase auth UUID,
+    # stored as text, for mobile users). These return typed values, not the
+    # legacy {"message", "status_code"} envelope.
     # ─────────────────────────────────────────────────────────────────────
 
     def _row_to_user(self, row: dict) -> User:
+        uid = str(row["user_id"]) if row.get("user_id") is not None else None
+        telegram = int(uid) if uid and uid.isdigit() else None
         return User(
-            id=UUID(row["id"]),
-            telegram_user_id=row.get("telegram_user_id"),
-            auth_user_id=UUID(row["auth_user_id"]) if row.get("auth_user_id") else None,
+            id=uid,
+            telegram_user_id=telegram,
+            auth_user_id=row.get("auth_user_id"),
             language_code=row.get("language_code") or "ru",
-            is_premium=bool(row.get("is_premium", False)),
+            is_premium=str(row.get("is_premium")).lower() in ("true", "1", "t"),
             created_at=row.get("created_at") or _utcnow(),
         )
 
@@ -321,7 +323,7 @@ class SupabaseService:
         resp = (
             self.supabase_client.table(self._users_table)
             .select("*")
-            .eq("auth_user_id", str(auth_user_id))
+            .eq("auth_user_id", auth_user_id)
             .limit(1)
             .execute()
         )
@@ -332,112 +334,130 @@ class SupabaseService:
         resp = (
             self.supabase_client.table(self._users_table)
             .select("*")
-            .eq("telegram_user_id", int(telegram_user_id))
+            .eq("user_id", str(telegram_user_id))
             .limit(1)
             .execute()
         )
         return self._row_to_user(resp.data[0]) if resp.data else None
 
-    async def create_user_from_auth(self, auth_user_id: UUID, email: str | None) -> User:
+    async def create_user_from_auth(self, auth_user_id: str, email: str | None) -> User:
+        """Mobile signup: user_id = the auth UUID (text). Seeds users_status."""
         self._ensure_session()
         resp = (
             self.supabase_client.table(self._users_table)
             .insert({
+                "user_id": str(auth_user_id),
                 "auth_user_id": str(auth_user_id),
+                "username": (email or "").split("@")[0] or None,
                 "language_code": "ru",
             })
             .execute()
         )
         user = self._row_to_user(resp.data[0])
-        # Seed users_status with defaults.
         self.supabase_client.table(self._users_status_table).insert({
-            "user_uuid": str(user.id),
+            "user_id": str(user.id),
             "daily_limit": DEFAULT_DAILY_LIMIT,
             "subscription_limit": 0,
             "last_processing_date": None,
         }).execute()
         return user
 
-    async def update_user_language(self, user_id: UUID, language_code: str) -> User:
+    async def update_user_language(self, user_id: str, language_code: str) -> User:
         self._ensure_session()
         resp = (
             self.supabase_client.table(self._users_table)
             .update({"language_code": language_code})
-            .eq("id", str(user_id))
+            .eq("user_id", user_id)
             .execute()
         )
         return self._row_to_user(resp.data[0])
 
-    async def set_telegram_user_id(self, user_id: UUID, telegram_user_id: int) -> None:
-        self._ensure_session()
-        self.supabase_client.table(self._users_table).update(
-            {"telegram_user_id": int(telegram_user_id)}
-        ).eq("id", str(user_id)).execute()
+    async def set_telegram_user_id(self, user_id: str, telegram_user_id: int) -> None:
+        # In the text-key model "linking" is a merge; this is a no-op kept for API
+        # compatibility with the link flow.
+        return None
 
-    async def merge_users(self, survivor: UUID, victim: UUID) -> None:
-        """Merge `victim` into `survivor`. See docs/architecture/02-identity-and-auth.md."""
+    async def merge_users(self, survivor: str, victim: str) -> None:
+        """Reassign the victim's rows to the survivor user_id, then delete it.
+        survivor/victim are user_id text values."""
         self._ensure_session()
-        # Move tasks.
         self.supabase_client.table(self._task_table).update(
-            {"user_uuid": str(survivor)}
-        ).eq("user_uuid", str(victim)).execute()
-        # Sum subscription_limit, take max(daily_limit).
-        s_status = self.supabase_client.table(self._users_status_table) \
-            .select("*").eq("user_uuid", str(survivor)).execute()
-        v_status = self.supabase_client.table(self._users_status_table) \
-            .select("*").eq("user_uuid", str(victim)).execute()
-        if s_status.data and v_status.data:
-            s, v = s_status.data[0], v_status.data[0]
+            {"user_id": survivor}
+        ).eq("user_id", victim).execute()
+        # fold balances
+        s = self.supabase_client.table(self._users_status_table).select("*").eq("user_id", survivor).execute()
+        v = self.supabase_client.table(self._users_status_table).select("*").eq("user_id", victim).execute()
+        if s.data and v.data:
             self.supabase_client.table(self._users_status_table).update({
-                "subscription_limit": int(s["subscription_limit"]) + int(v["subscription_limit"]),
-                "daily_limit": max(int(s["daily_limit"]), int(v["daily_limit"])),
-            }).eq("user_uuid", str(survivor)).execute()
-            self.supabase_client.table(self._users_status_table) \
-                .delete().eq("user_uuid", str(victim)).execute()
-        # Take auth_user_id from victim onto survivor.
-        v_user = self.supabase_client.table(self._users_table) \
-            .select("auth_user_id").eq("id", str(victim)).execute()
+                "subscription_limit": int(s.data[0].get("subscription_limit") or 0) + int(v.data[0].get("subscription_limit") or 0),
+                "daily_limit": max(int(s.data[0].get("daily_limit") or 0), int(v.data[0].get("daily_limit") or 0)),
+            }).eq("user_id", survivor).execute()
+            self.supabase_client.table(self._users_status_table).delete().eq("user_id", victim).execute()
+        # carry auth_user_id onto the survivor
+        v_user = self.supabase_client.table(self._users_table).select("auth_user_id").eq("user_id", victim).execute()
         if v_user.data and v_user.data[0].get("auth_user_id"):
-            self.supabase_client.table(self._users_table).update({
-                "auth_user_id": v_user.data[0]["auth_user_id"],
-            }).eq("id", str(survivor)).execute()
-        # Delete the victim user row last.
-        self.supabase_client.table(self._users_table) \
-            .delete().eq("id", str(victim)).execute()
+            self.supabase_client.table(self._users_table).update(
+                {"auth_user_id": v_user.data[0]["auth_user_id"]}
+            ).eq("user_id", survivor).execute()
+        self.supabase_client.table(self._users_table).delete().eq("user_id", victim).execute()
 
-    # ─── Quota (atomic, via SQL functions in migration 0002) ───
+    # ─── Quota (Python, keyed on user_id text — mirrors the bot's logic) ───
 
-    async def rpc_reserve_solve(self, user_id: UUID) -> dict:
+    async def get_or_reset_balance(self, user_id: str) -> dict:
         self._ensure_session()
-        resp = self.supabase_client.rpc("reserve_solve", {"uid": str(user_id)}).execute()
-        row = resp.data[0] if resp.data else {"spent_from": None, "remaining": -1}
-        return {"spent_from": row.get("spent_from"), "remaining": int(row.get("remaining", -1))}
-
-    async def rpc_refund_solve(self, user_id: UUID, bucket: Literal["daily", "subscription"]) -> None:
-        self._ensure_session()
-        self.supabase_client.rpc("refund_solve", {
-            "uid": str(user_id), "bucket": bucket,
-        }).execute()
-
-    async def get_or_reset_balance(self, user_id: UUID) -> dict:
-        self._ensure_session()
-        resp = self.supabase_client.rpc("get_or_reset_balance", {
-            "uid": str(user_id), "default_daily": DEFAULT_DAILY_LIMIT,
-        }).execute()
+        resp = (
+            self.supabase_client.table(self._users_status_table)
+            .select("daily_limit, subscription_limit, last_processing_date")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
         if not resp.data:
             return {"daily_limit": DEFAULT_DAILY_LIMIT, "subscription_limit": 0}
         row = resp.data[0]
-        return {
-            "daily_limit": int(row.get("daily_limit", DEFAULT_DAILY_LIMIT)),
-            "subscription_limit": int(row.get("subscription_limit", 0)),
-        }
+        daily = int(row.get("daily_limit") or 0)
+        sub = int(row.get("subscription_limit") or 0)
+        today = date.today().isoformat()
+        if row.get("last_processing_date") != today:
+            daily = DEFAULT_DAILY_LIMIT
+            self.supabase_client.table(self._users_status_table).update(
+                {"daily_limit": daily, "last_processing_date": today}
+            ).eq("user_id", user_id).execute()
+        return {"daily_limit": daily, "subscription_limit": sub}
+
+    async def rpc_reserve_solve(self, user_id: str) -> dict:
+        self._ensure_session()
+        bal = await self.get_or_reset_balance(user_id)
+        if bal["daily_limit"] > 0:
+            self.supabase_client.table(self._users_status_table).update(
+                {"daily_limit": bal["daily_limit"] - 1, "last_processing_date": date.today().isoformat()}
+            ).eq("user_id", user_id).execute()
+            return {"spent_from": "daily", "remaining": bal["daily_limit"] - 1}
+        if bal["subscription_limit"] > 0:
+            self.supabase_client.table(self._users_status_table).update(
+                {"subscription_limit": bal["subscription_limit"] - 1}
+            ).eq("user_id", user_id).execute()
+            return {"spent_from": "subscription", "remaining": bal["subscription_limit"] - 1}
+        return {"spent_from": None, "remaining": -1}
+
+    async def rpc_refund_solve(self, user_id: str, bucket: Literal["daily", "subscription"]) -> None:
+        self._ensure_session()
+        col = "daily_limit" if bucket == "daily" else "subscription_limit"
+        cur = (
+            self.supabase_client.table(self._users_status_table)
+            .select(col).eq("user_id", user_id).limit(1).execute()
+        )
+        if cur.data:
+            self.supabase_client.table(self._users_status_table).update(
+                {col: int(cur.data[0].get(col) or 0) + 1}
+            ).eq("user_id", user_id).execute()
 
     # ─── Account-link codes ───
 
-    async def insert_link_code(self, code_hash: bytes, user_id: UUID, expires_at: datetime) -> None:
+    async def insert_link_code(self, code_hash: bytes, user_id: str, expires_at: datetime) -> None:
         self._ensure_session()
         self.supabase_client.table("account_links").insert({
-            "code_hash": code_hash.hex(),  # Supabase accepts hex for bytea
+            "code_hash": code_hash.hex(),
             "user_id": str(user_id),
             "expires_at": expires_at.isoformat(),
         }).execute()
@@ -462,87 +482,174 @@ class SupabaseService:
         self.supabase_client.table("account_links").update(
             {"consumed_at": _utcnow().isoformat()}
         ).eq("code_hash", code_hash.hex()).execute()
-        return {"user_id": UUID(row["user_id"])}
+        return {"user_id": str(row["user_id"])}
 
     # ─── Tasks ───
 
     async def insert_task(
         self,
-        task_id: UUID,
-        user_id: UUID,
+        user_id: str,
         status: str,
         input_kind: str,
         input_text: str | None,
         image_path: str | None,
         thumbnail_path: str | None,
-        spent_from: str,
-    ) -> None:
+    ) -> str:
+        """Insert a task (bigint id is DB-generated). Returns the new id as str."""
         self._ensure_session()
-        self.supabase_client.table(self._task_table).insert({
-            "id": str(task_id),
-            "user_uuid": str(user_id),
+        resp = self.supabase_client.table(self._task_table).insert({
+            "user_id": user_id,
             "status": status,
             "input_kind": input_kind,
             "input_text": input_text,
+            "file_path": image_path,
             "image_path": image_path,
             "thumbnail_path": thumbnail_path,
-            "spent_from": spent_from,
         }).execute()
+        return str(resp.data[0]["id"])
 
-    async def get_task(self, task_id: UUID) -> dict | None:
+    async def get_task(self, task_id: str) -> dict | None:
         self._ensure_session()
         resp = (
             self.supabase_client.table(self._task_table)
             .select("*")
-            .eq("id", str(task_id))
+            .eq("id", task_id)
             .limit(1)
             .execute()
         )
         if not resp.data:
             return None
         row = resp.data[0]
-        row["user_id"] = UUID(row["user_uuid"]) if row.get("user_uuid") else None
-        row["id"] = UUID(row["id"])
+        row["id"] = str(row["id"])
+        row["user_id"] = str(row["user_id"]) if row.get("user_id") is not None else None
         for field in ("created_at", "completed_at"):
             if row.get(field):
                 row[field] = datetime.fromisoformat(row[field].replace("Z", "+00:00"))
         return row
 
-    async def mark_task_done(self, task_id: UUID, solution: dict, model_used: str) -> None:
+    async def mark_task_done(self, task_id: str, solution: dict, model_used: str) -> None:
         self._ensure_session()
         self.supabase_client.table(self._task_table).update({
             "status": "done",
             "solution": solution,
             "model_used": model_used,
             "completed_at": _utcnow().isoformat(),
-        }).eq("id", str(task_id)).execute()
+        }).eq("id", task_id).execute()
 
-    async def mark_task_failed(self, task_id: UUID, error_code: str, detail: str) -> None:
+    async def mark_task_failed(self, task_id: str, error_code: str, detail: str) -> None:
         self._ensure_session()
         self.supabase_client.table(self._task_table).update({
             "status": "failed",
             "error_code": error_code,
-            "error_detail": detail[:500],
             "completed_at": _utcnow().isoformat(),
-        }).eq("id", str(task_id)).execute()
+        }).eq("id", task_id).execute()
 
-    async def list_tasks(self, user_id: UUID, limit: int, before: datetime | None) -> list[dict]:
+    async def list_tasks(
+        self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None
+    ) -> list[dict]:
         self._ensure_session()
         q = (
             self.supabase_client.table(self._task_table)
-            .select("id, status, input_kind, input_text, thumbnail_path, created_at")
-            .eq("user_uuid", str(user_id))
+            .select("id, status, input_kind, input_text, thumbnail_path, file_path, created_at")
+            .eq("user_id", user_id)
             .order("created_at", desc=True)
             .limit(limit)
         )
+        if album_id:
+            q = q.eq("album_id", album_id)
         if before:
             q = q.lt("created_at", before.isoformat())
         resp = q.execute()
         rows = resp.data or []
         for r in rows:
-            r["id"] = UUID(r["id"])
+            r["id"] = str(r["id"])
+            if not r.get("input_kind"):
+                r["input_kind"] = "text" if not r.get("file_path") else "image"
+            if not r.get("status"):
+                r["status"] = "done"
             r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
         return rows
+
+    # ─── Albums ───
+
+    async def list_albums(self, user_id: str) -> list[dict]:
+        self._ensure_session()
+        rows = (
+            self.supabase_client.table("albums")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=False)
+            .execute()
+        ).data or []
+        # task counts + last-activity per album, aggregated in Python
+        tasks = (
+            self.supabase_client.table(self._task_table)
+            .select("album_id, created_at")
+            .eq("user_id", user_id)
+            .execute()
+        ).data or []
+        counts: dict[str, int] = {}
+        last: dict[str, str] = {}
+        for t in tasks:
+            aid = t.get("album_id")
+            if not aid:
+                continue
+            counts[aid] = counts.get(aid, 0) + 1
+            ts = t.get("created_at")
+            if ts and (aid not in last or ts > last[aid]):
+                last[aid] = ts
+        out = []
+        for r in rows:
+            aid = r["id"]
+            r["task_count"] = counts.get(aid, 0)
+            r["last_updated"] = last.get(aid) or r["updated_at"]
+            out.append(r)
+        return out
+
+    async def create_album(self, user_id: str, name: str, emoji: str | None, color: str | None) -> dict:
+        self._ensure_session()
+        resp = self.supabase_client.table("albums").insert({
+            "user_id": user_id, "name": name, "emoji": emoji, "color": color,
+        }).execute()
+        row = resp.data[0]
+        row["task_count"] = 0
+        row["last_updated"] = row["updated_at"]
+        return row
+
+    async def update_album(self, user_id: str, album_id: UUID, fields: dict) -> dict | None:
+        self._ensure_session()
+        patch = {k: v for k, v in fields.items() if v is not None}
+        patch["updated_at"] = _utcnow().isoformat()
+        resp = (
+            self.supabase_client.table("albums")
+            .update(patch)
+            .eq("id", str(album_id))
+            .eq("user_id", user_id)
+            .execute()
+        )
+        if not resp.data:
+            return None
+        row = resp.data[0]
+        row["task_count"] = 0
+        row["last_updated"] = row["updated_at"]
+        return row
+
+    async def delete_album(self, user_id: str, album_id: UUID) -> None:
+        self._ensure_session()
+        self.supabase_client.table("albums").delete().eq(
+            "id", str(album_id)
+        ).eq("user_id", user_id).execute()
+
+    async def assign_task_album(self, user_id: str, task_id: str, album_id: UUID | None) -> bool:
+        self._ensure_session()
+        resp = (
+            self.supabase_client.table(self._task_table)
+            .update({"album_id": str(album_id) if album_id else None})
+            .eq("id", task_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return bool(resp.data)
 
     # ─── Storage ───
 
@@ -567,12 +674,12 @@ class SupabaseService:
 
     async def upsert_user_device(
         self,
-        user_id: UUID,
+        user_id: str,
         platform: str,
         token: str,
         app_version: str | None,
         locale: str | None,
-    ) -> UUID:
+    ) -> str:
         self._ensure_session()
         existing = (
             self.supabase_client.table("user_devices")
@@ -583,82 +690,82 @@ class SupabaseService:
         )
         if existing.data:
             self.supabase_client.table("user_devices").update({
-                "user_id": str(user_id),
+                "user_id": user_id,
                 "app_version": app_version,
                 "locale": locale,
                 "last_seen": _utcnow().isoformat(),
             }).eq("token", token).execute()
-            return UUID(existing.data[0]["id"])
+            return str(existing.data[0]["id"])
         resp = self.supabase_client.table("user_devices").insert({
-            "user_id": str(user_id),
+            "user_id": user_id,
             "platform": platform,
             "token": token,
             "app_version": app_version,
             "locale": locale,
         }).execute()
-        return UUID(resp.data[0]["id"])
+        return str(resp.data[0]["id"])
 
-    async def delete_user_device(self, user_id: UUID, token: str) -> None:
+    async def delete_user_device(self, user_id: str, token: str) -> None:
         self._ensure_session()
         self.supabase_client.table("user_devices").delete().eq(
-            "user_id", str(user_id)
+            "user_id", user_id
         ).eq("token", token).execute()
 
     async def delete_user_device_by_token(self, token: str) -> None:
         self._ensure_session()
         self.supabase_client.table("user_devices").delete().eq("token", token).execute()
 
-    async def list_user_devices(self, user_id: UUID) -> list[dict]:
+    async def list_user_devices(self, user_id: str) -> list[dict]:
         self._ensure_session()
         resp = (
             self.supabase_client.table("user_devices")
             .select("*")
-            .eq("user_id", str(user_id))
+            .eq("user_id", user_id)
             .execute()
         )
         rows = resp.data or []
         for r in rows:
-            r["user_id"] = UUID(r["user_id"]) if r.get("user_id") else None
+            r["user_id"] = str(r["user_id"]) if r.get("user_id") is not None else None
         return rows
 
     # ─── Telegram bot bridges (called from /internal/*) ───
 
     async def upsert_telegram_user(self, data: dict) -> None:
-        """Bot's /start handler calls this. Idempotent."""
+        """Bot's /start handler calls this. Idempotent. Keyed on user_id text."""
         self._ensure_session()
-        telegram_user_id = int(data.get("user_id") or data.get("telegram_user_id"))
+        uid = str(data.get("user_id") or data.get("telegram_user_id"))
         existing = (
             self.supabase_client.table(self._users_table)
-            .select("id")
-            .eq("telegram_user_id", telegram_user_id)
+            .select("user_id")
+            .eq("user_id", uid)
             .limit(1)
             .execute()
         )
         if existing.data:
             return
-        resp = self.supabase_client.table(self._users_table).insert({
-            "telegram_user_id": telegram_user_id,
+        self.supabase_client.table(self._users_table).insert({
+            "user_id": uid,
             "username": data.get("username"),
             "first_name": data.get("first_name"),
             "last_name": data.get("last_name"),
             "language_code": data.get("language_code") or "ru",
-            "is_premium": bool(data.get("is_premium", False)),
+            "is_premium": str(data.get("is_premium", False)),
         }).execute()
-        user_id = resp.data[0]["id"]
         self.supabase_client.table(self._users_status_table).insert({
-            "user_uuid": user_id,
+            "user_id": uid,
             "daily_limit": DEFAULT_DAILY_LIMIT,
             "subscription_limit": 0,
             "last_processing_date": None,
         }).execute()
 
     async def insert_legacy_solution(
-        self, user_id: UUID, file_path: str, solution: dict, model: str,
+        self, user_id: str, file_path: str, solution: dict, model: str,
     ) -> None:
         """Bot's solve path stores synchronously after the answer is back."""
         self._ensure_session()
         self.supabase_client.table(self._task_table).insert({
-            "user_uuid": str(user_id),
+            "user_id": user_id,
+            "file_path": file_path or None,
             "image_path": file_path or None,
             "input_kind": "image" if file_path else "text",
             "solution": solution,

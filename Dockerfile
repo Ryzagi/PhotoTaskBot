@@ -26,5 +26,5 @@ RUN mktexlsr
 # Set the Python PATH to include /app
 ENV PYTHONPATH=/app
 
-# Run the command to start your application
-CMD ["sh", "-c", "uvicorn bot.app.app:app --host 0.0.0.0 --port 8000"]
+# Run the unified app: /v1/* (mobile) + /internal/* (bot) + legacy /tasker/api/*
+CMD ["sh", "-c", "uvicorn bot.app.main:app --host 0.0.0.0 --port 8000"]

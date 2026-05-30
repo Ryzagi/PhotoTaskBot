@@ -1,0 +1,16 @@
+.DS_Store
+.build/
+Package.resolved
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+Config-Dev.xcconfig
+Config-Prod.xcconfig

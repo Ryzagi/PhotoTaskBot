@@ -1,0 +1,34 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    "bot/app/tg_app__.py",   # legacy file kept as reference, do not lint
+    ".pytest_cache",
+    "task_helper.egg-info",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W", "UP", "RUF"]
+ignore = [
+    "B008",   # FastAPI Depends(...) in defaults is the canonical pattern
+    "E501",   # line length already enforced by formatter
+    "RUF001", # Cyrillic look-alike chars are intentional (Russian-first product)
+    "RUF002", # ditto for docstrings
+    "RUF003", # ditto for comments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Legacy bot code; refactoring is tracked separately.
+"bot/app/tg_app.py" = ["B904", "E402", "UP022", "B007", "F841"]
+"bot/app/routers.py" = ["B904"]
+"bot/latex_renderer.py" = ["UP022", "B007", "B904"]
+"bot/gemini_service.py" = ["E501", "RUF013"]
+"bot/gpt_service.py" = ["E501", "RUF013"]
+"bot/constants.py" = ["E501", "W291", "W293"]
+"scripts/solve_test_run.py" = ["F841"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+warn_unused_ignores = true

@@ -1,0 +1,50 @@
+<!--
+Add these snippets to your generated PandaSolve/Info.plist. Xcode 15+ apps
+generated from the SwiftUI template don't ship an Info.plist file by default —
+add a custom one (target settings → Info → Custom iOS Target Properties) or
+use a build-setting equivalent.
+
+Replace api.pandasolve.app, SUPABASE_URL, etc. with the values from your
+xcconfig (Config-Dev.xcconfig / Config-Prod.xcconfig).
+-->
+
+<!-- 1. OAuth redirect URL scheme (required for Google + Apple via Supabase). -->
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLName</key>
+    <string>com.pandasolve.app.login</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>app.pandasolve.client</string>
+    </array>
+  </dict>
+</array>
+
+<!-- 2. Backend + Supabase values, sourced from xcconfig. -->
+<key>API_BASE_URL</key>
+<string>$(API_BASE_URL)</string>
+<key>SUPABASE_URL</key>
+<string>$(SUPABASE_URL)</string>
+<key>SUPABASE_ANON_KEY</key>
+<string>$(SUPABASE_ANON_KEY)</string>
+<key>SENTRY_DSN</key>
+<string>$(SENTRY_DSN)</string>
+
+<!-- 3. App Transport Security: TLS-only, default deny. -->
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <false/>
+</dict>
+
+<!-- 4. Photo library + camera usage descriptions (App Store requires these
+     strings to be present when these permissions are used). -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Выберите фото задачи, чтобы получить решение.</string>
+<key>NSCameraUsageDescription</key>
+<string>Сфотографируйте задачу — мы её решим.</string>
+
+<!-- 5. Encryption export — none beyond standard iOS crypto. -->
+<key>ITSAppUsesNonExemptEncryption</key>
+<false/>

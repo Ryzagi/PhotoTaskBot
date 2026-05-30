@@ -1,0 +1,45 @@
+"""Identity endpoints: /v1/me, /v1/me/balance."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends
+
+from bot.app.deps import get_user_service
+from bot.auth.dependencies import current_user
+from bot.schemas.user import MeResponse, UpdateMeRequest
+from bot.services.user_service import UserService
+
+router = APIRouter(tags=["identity"])
+
+
+@router.get("/me", response_model=MeResponse)
+async def get_me(
+    user=Depends(current_user),
+    user_service: UserService = Depends(get_user_service),
+) -> MeResponse:
+    balance = await user_service.get_balance(user.id)
+    return MeResponse(
+        id=user.id,
+        telegram_linked=user.telegram_linked,
+        language_code=user.language_code,
+        balance=balance,
+        created_at=user.created_at,
+    )
+
+
+@router.post("/me", response_model=MeResponse)
+async def update_me(
+    payload: UpdateMeRequest,
+    user=Depends(current_user),
+    user_service: UserService = Depends(get_user_service),
+) -> MeResponse:
+    if payload.language_code:
+        user = await user_service.update_language(user.id, payload.language_code)
+    balance = await user_service.get_balance(user.id)
+    return MeResponse(
+        id=user.id,
+        telegram_linked=user.telegram_linked,
+        language_code=user.language_code,
+        balance=balance,
+        created_at=user.created_at,
+    )

@@ -1,0 +1,54 @@
+# ───────── Secrets & local config (NEVER commit) ─────────
+.env
+.env.*
+!.env.example
+*.local
+clients/android/local.properties
+clients/android/app/google-services.json
+clients/ios/Config-*.xcconfig
+clients/ios/GoogleService-Info.plist
+**/*.p8
+**/*.keystore
+!**/debug.keystore
+
+# ───────── Python ─────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# ───────── Android / Gradle ─────────
+.gradle/
+**/build/
+clients/android/.kotlin/
+*.iml
+captures/
+.cxx/
+local.properties
+
+# ───────── iOS / Swift ─────────
+clients/ios/.build/
+clients/ios/Package.resolved
+**/xcuserdata/
+*.xcuserstate
+DerivedData/
+*.ipa
+*.dSYM*
+
+# ───────── Editors / OS ─────────
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# ───────── Misc / scratch ─────────
+bot/app/tg_app__.py
+clients/design/screens.html.bak

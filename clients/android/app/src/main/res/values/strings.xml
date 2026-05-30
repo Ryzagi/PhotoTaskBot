@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PandaSolve</string>
+    <string name="solve_cta">Решить задачу</string>
+    <string name="sign_in">Войти</string>
+    <string name="email">Email</string>
+    <string name="password">Пароль</string>
+    <string name="continue_with_google">Continue with Google</string>
+    <string name="continue_with_apple">Continue with Apple</string>
+    <string name="balance_daily_remaining">Сегодня осталось</string>
+    <string name="history">История</string>
+    <string name="settings">Настройки</string>
+    <string name="link_telegram">Привязать Telegram</string>
+    <string name="topup">Пополнить баланс</string>
+    <string name="support">Поддержка</string>
+    <string name="solving">Решаю задачу 🐼</string>
+    <string name="solve_failed">Не удалось решить. Попробуйте позже.</string>
+
+    <plurals name="solutions_left">
+        <item quantity="one">%d решение</item>
+        <item quantity="few">%d решения</item>
+        <item quantity="many">%d решений</item>
+        <item quantity="other">%d решения</item>
+    </plurals>
+</resources>
