@@ -276,6 +276,16 @@
             "title": "Language Code",
             "type": "string"
           },
+          "solved_count": {
+            "default": 0,
+            "title": "Solved Count",
+            "type": "integer"
+          },
+          "streak": {
+            "default": 0,
+            "title": "Streak",
+            "type": "integer"
+          },
           "telegram_linked": {
             "title": "Telegram Linked",
             "type": "boolean"

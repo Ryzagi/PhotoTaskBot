@@ -15,6 +15,7 @@ import io.github.jan.supabase.createSupabaseClient
 // though the plugin class is now called `Auth` and the extension on the
 // client is `client.auth`.
 import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.Apple
 import io.github.jan.supabase.gotrue.providers.Google
@@ -24,6 +25,16 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+
+/** Coarse auth state the UI routes on, decoupled from supabase-kt internals. */
+enum class AuthState { LOADING, SIGNED_IN, SIGNED_OUT }
 
 /**
  * Supabase Auth bridge.
@@ -50,8 +61,31 @@ class SupabaseAuth @Inject constructor(
         install(Auth) {
             scheme = "com.pandasolve.app"
             host = "login-callback"
+            // Persist the session to disk and restore it on next launch (defaults,
+            // made explicit). Restore is async — the UI must wait on `authState`
+            // below rather than calling isSignedIn() synchronously at startup.
+            autoLoadFromStorage = true
+            alwaysAutoRefresh = true
         }
     }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Routing state for the app. Starts as [AuthState.LOADING] while supabase-kt
+     * restores any persisted session from storage, then settles to SIGNED_IN /
+     * SIGNED_OUT. This is what fixes "have to log in every launch": cold start now
+     * shows a splash until the restore resolves instead of assuming signed-out.
+     */
+    val authState: StateFlow<AuthState> = client.auth.sessionStatus
+        .map { status ->
+            when (status) {
+                is SessionStatus.Authenticated -> AuthState.SIGNED_IN
+                is SessionStatus.NotAuthenticated -> AuthState.SIGNED_OUT
+                else -> AuthState.LOADING   // LoadingFromStorage / NetworkError
+            }
+        }
+        .stateIn(scope, SharingStarted.Eagerly, AuthState.LOADING)
 
     fun isSignedIn(): Boolean = client.auth.currentSessionOrNull() != null
 

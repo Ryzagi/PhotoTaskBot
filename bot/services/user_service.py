@@ -27,6 +27,10 @@ class UserService:
         row = await self.db.get_or_reset_balance(user_id)
         return Balance(daily=row["daily_limit"], subscription=row["subscription_limit"])
 
+    async def get_stats(self, user_id: str) -> dict:
+        """{solved_count, streak} for the Home/Profile screens."""
+        return await self.db.get_user_stats(user_id)
+
     async def issue_link_code(self, user_id: str) -> LinkStartResponse:
         code = f"{secrets.randbelow(1_000_000):06d}"
         code_hash = hashlib.sha256(code.encode()).digest()

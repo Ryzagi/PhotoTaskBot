@@ -14,6 +14,30 @@ from bot.schemas.user import User
 def _utcnow() -> datetime:
     return datetime.now(UTC)
 
+
+def _compute_streak(timestamps: list) -> int:
+    """Consecutive days (ending today, or yesterday if nothing yet today) that
+    have at least one solved task. `timestamps` are ISO strings or datetimes."""
+    days: set[date] = set()
+    for ts in timestamps:
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        days.add(ts.astimezone(UTC).date())
+    if not days:
+        return 0
+    today = _utcnow().date()
+    if today in days:
+        cursor = today
+    elif (today - timedelta(days=1)) in days:
+        cursor = today - timedelta(days=1)
+    else:
+        return 0
+    streak = 0
+    while cursor in days:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
 def _is_auth_error(exc: Exception) -> bool:
     s = str(exc)
     return (
@@ -569,6 +593,23 @@ class SupabaseService:
                 r["status"] = "done"
             r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
         return rows
+
+    async def get_user_stats(self, user_id: str) -> dict:
+        """Total solved count + current daily streak for the Home/Profile screens."""
+        self._ensure_session()
+        resp = (
+            self.supabase_client.table(self._task_table)
+            .select("created_at", count="exact")
+            .eq("user_id", user_id)
+            .eq("status", "done")
+            .order("created_at", desc=True)
+            .limit(400)
+            .execute()
+        )
+        rows = resp.data or []
+        solved_count = resp.count if resp.count is not None else len(rows)
+        streak = _compute_streak([r["created_at"] for r in rows])
+        return {"solved_count": solved_count, "streak": streak}
 
     # ─── Albums ───
 

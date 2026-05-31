@@ -18,12 +18,15 @@ async def get_me(
     user_service: UserService = Depends(get_user_service),
 ) -> MeResponse:
     balance = await user_service.get_balance(user.id)
+    stats = await user_service.get_stats(user.id)
     return MeResponse(
         id=user.id,
         telegram_linked=user.telegram_linked,
         language_code=user.language_code,
         balance=balance,
         created_at=user.created_at,
+        solved_count=stats["solved_count"],
+        streak=stats["streak"],
     )
 
 
@@ -36,10 +39,13 @@ async def update_me(
     if payload.language_code:
         user = await user_service.update_language(user.id, payload.language_code)
     balance = await user_service.get_balance(user.id)
+    stats = await user_service.get_stats(user.id)
     return MeResponse(
         id=user.id,
         telegram_linked=user.telegram_linked,
         language_code=user.language_code,
         balance=balance,
         created_at=user.created_at,
+        solved_count=stats["solved_count"],
+        streak=stats["streak"],
     )

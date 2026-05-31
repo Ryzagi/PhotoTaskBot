@@ -31,6 +31,8 @@ class MeResponse(BaseModel):
     language_code: str
     balance: Balance
     created_at: datetime
+    solved_count: int = 0           # total tasks solved (status=done)
+    streak: int = 0                 # consecutive days (ending today/yesterday) with a solve
 
 
 class UpdateMeRequest(BaseModel):

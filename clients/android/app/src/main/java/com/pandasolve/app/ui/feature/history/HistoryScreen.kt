@@ -126,7 +126,7 @@ private fun DayGroup(
         }
         AnimatedVisibility(open) {
             Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                items.forEach { t -> ThreadCard(t) { onTask("042") } }
+                items.forEach { t -> ThreadCard(t) { if (t.id.isNotBlank()) onTask(t.id) } }
             }
         }
     }

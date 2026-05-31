@@ -2,6 +2,7 @@ package com.pandasolve.app.network
 
 import com.pandasolve.app.BuildConfig
 import com.pandasolve.app.auth.SupabaseAuth
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
@@ -27,6 +28,13 @@ class ApiClient @Inject constructor(
         val ok = OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(auth))
             .addInterceptor(logging)
+            // Without Redis the backend solves inline, so POST /v1/tasks holds the
+            // request for the whole solve (GPT + Gemini fallback). The default 10s
+            // read timeout fires mid-solve and surfaces as "timeout". Give it room.
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)     // image upload
+            .readTimeout(180, TimeUnit.SECONDS)     // inline solve can be slow
+            .callTimeout(200, TimeUnit.SECONDS)     // overall hard cap
             .build()
         val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
         return Retrofit.Builder()

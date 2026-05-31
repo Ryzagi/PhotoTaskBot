@@ -72,4 +72,5 @@ fun TaskListItem.toRow(index: Int): SampleThread = SampleThread(
     albumColor = albumColors[index % albumColors.size],
     tint = tints[index % tints.size],
     stamp = createdAt.take(10),
+    id = this.id,
 )

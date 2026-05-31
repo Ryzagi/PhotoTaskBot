@@ -112,11 +112,10 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             Spacer(Modifier.height(22.dp))
             SectionLabel("💬 спроси панду", c.lavDeep, c.lavSoft)
             Spacer(Modifier.height(12.dp))
-            Bubble("а если бы внизу было (x − 2)?", me = true)
-            Spacer(Modifier.height(10.dp))
-            Bubble("Тогда «дырочка» переедет в x = 2. Сокращение пройдёт так же: f(x) = x + 2, и f′(x) = 1 при x ≠ 2 🐼", me = false)
-            Spacer(Modifier.height(10.dp))
-            Bubble("покажи через предел 🙏", me = true)
+            Text(
+                "Задай уточняющий вопрос по решению ниже 🐼",
+                fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
+            )
         }
 
         // chat bar

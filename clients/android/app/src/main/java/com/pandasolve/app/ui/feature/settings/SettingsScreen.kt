@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.CuteBottomBar
 import com.pandasolve.app.ui.component.CuteTab
 import com.pandasolve.app.ui.component.Panda
@@ -38,14 +39,15 @@ fun ProfileScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val c = cute
+    val t = LocalStrings.current
     val s by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.refresh() }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 110.dp),
+                .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 96.dp),
         ) {
-            Text("Профиль", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 24.sp, color = c.ink)
+            Text(t.profileTitle, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 24.sp, color = c.ink)
 
             Spacer(Modifier.height(12.dp))
             // hero
@@ -62,20 +64,20 @@ fun ProfileScreen(
                     Text(s.email, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkSoft)
                 }
                 if (s.telegramLinked) Box(Modifier.clip(RoundedCornerShape(999.dp)).background(c.mintSoft).padding(horizontal = 10.dp, vertical = 4.dp)) {
-                    Text("тг ✓", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.mintDeep)
+                    Text(t.linkedTag, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.mintDeep)
                 }
             }
 
             Spacer(Modifier.height(14.dp))
             // stats
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Stat("${s.streak}", "дней стрик", c.butterDeep, Modifier.weight(1f))
-                Stat("${s.solved}", "решено", c.mintDeep, Modifier.weight(1f))
-                Stat("${s.albums}", "альбомов", c.lavDeep, Modifier.weight(1f))
+                Stat("${s.streak}", t.statStreak, c.butterDeep, Modifier.weight(1f))
+                Stat("${s.solved}", t.statSolved, c.mintDeep, Modifier.weight(1f))
+                Stat("${s.albums}", t.statAlbums, c.lavDeep, Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(16.dp))
-            Text("Достижения 🏆", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 14.sp, color = c.ink)
+            Text(t.achievements, fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 14.sp, color = c.ink)
             Spacer(Modifier.height(9.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Badge("🌱", c.mintSoft, false); Badge("🔥", c.butterSoft, false); Badge("💯", c.coralSoft, false)
@@ -84,11 +86,15 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(18.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row2("🎋", c.mintSoft, "Пополнить бамбук", "5 ⭐ = 1 решение", "телеграм →", c.inkSoft)
-                Row2("✈️", c.skySoft, "Telegram", "@vladislavrzhv", "привязан", c.mintDeep)
-                Row2("🌍", c.lavSoft, "Язык", null, "русский", c.inkSoft)
-                Row2("🔔", c.butterSoft, "Уведомления", "2 типа включено", "→", c.inkSoft)
-                Row2("👋", c.coralSoft, "Выйти", null, "→", c.coralDeep, danger = true, onClick = { viewModel.signOut(onSignOut) })
+                Row2("🎋", c.mintSoft, t.rowTopUp, t.rowTopUpHint, t.rowTopUpTrail, c.inkSoft)
+                Row2("✈️", c.skySoft, t.rowTelegram, null,
+                    if (s.telegramLinked) t.rowTelegramLinked else t.rowTelegramUnlinked,
+                    if (s.telegramLinked) c.mintDeep else c.inkSoft)
+                Row2("🌍", c.lavSoft, t.rowLanguage, null,
+                    if (s.language.startsWith("en")) t.languageNameEn else t.languageNameRu,
+                    c.lavDeep, onClick = { viewModel.toggleLanguage() })
+                Row2("🔔", c.butterSoft, t.rowNotifications, t.rowNotificationsHint, "→", c.inkSoft)
+                Row2("👋", c.coralSoft, t.rowSignOut, null, "→", c.coralDeep, danger = true, onClick = { viewModel.signOut(onSignOut) })
             }
         }
 

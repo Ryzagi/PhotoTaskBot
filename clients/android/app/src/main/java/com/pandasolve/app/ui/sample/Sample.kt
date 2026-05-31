@@ -16,6 +16,7 @@ data class SampleThread(
     val albumColor: Color,
     val tint: Color,
     val stamp: String,
+    val id: String = "",      // real task id ("" for static samples → not tappable)
 )
 
 data class SampleAlbum(

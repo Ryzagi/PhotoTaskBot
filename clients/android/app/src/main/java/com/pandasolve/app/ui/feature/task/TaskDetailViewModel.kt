@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.TaskRepository
+import com.pandasolve.app.latex.latexToUnicode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -19,24 +20,12 @@ data class ProblemUi(val problem: String, val steps: List<String>, val answer: S
 data class AlbumOption(val id: String, val name: String, val emoji: String)
 
 data class TaskUiState(
-    val status: String = "done",         // pending | done | failed
-    val condition: String = "14.  Найти производную f(x) = (x² − 4)/(x + 2) в точке x₀ = 3.",
-    val problems: List<ProblemUi> = sampleProblems,
+    val status: String = "pending",      // pending | done | failed
+    val condition: String = "",
+    val problems: List<ProblemUi> = emptyList(),
     val albums: List<AlbumOption> = emptyList(),
     val albumName: String? = null,
     val live: Boolean = false,
-)
-
-private val sampleProblems = listOf(
-    ProblemUi(
-        problem = "Найти производную f(x) = (x² − 4)/(x + 2) в точке x₀ = 3.",
-        steps = listOf(
-            "Сократим дробь: f(x) = (x−2)(x+2)/(x+2) = x − 2 при x ≠ −2.",
-            "Берём производную: f′(x) = 1 — это линейная функция.",
-            "Значение не зависит от точки x₀ = 3.",
-        ),
-        answer = "f′(3) = 1",
-    ),
 )
 
 @HiltViewModel
@@ -60,22 +49,27 @@ class TaskDetailViewModel @Inject constructor(
                     val t = taskRepo.get(taskId)
                     val problems = t.solution?.solutions?.map { p ->
                         ProblemUi(
-                            problem = p.problem,
-                            steps = p.steps.map { it.content },
-                            answer = p.solution.joinToString("  ") { it.content },
+                            problem = latexToUnicode(p.problem),
+                            steps = p.steps.map { latexToUnicode(it.content) },
+                            answer = p.solution.joinToString("  ") { latexToUnicode(it.content) },
                         )
                     }.orEmpty()
                     _state.update {
                         it.copy(
                             status = t.status,
-                            condition = t.inputText ?: it.condition,
-                            problems = problems.ifEmpty { it.problems },
+                            condition = t.inputText?.let(::latexToUnicode)
+                                ?: problems.firstOrNull()?.problem ?: it.condition,
+                            problems = problems,   // real data only — no sample fallback
                             live = true,
                         )
                     }
                     t.status
                 }.getOrElse {
-                    Timber.w(it, "task load failed — keeping sample content")
+                    // Real load failed (e.g. task not found) — show a failed state, never mock.
+                    Timber.w(it, "task load failed")
+                    _state.update {
+                        it.copy(status = "failed", condition = "Не удалось загрузить задачу", live = true)
+                    }
                     return@launch
                 }
                 if (ok != "pending") return@launch

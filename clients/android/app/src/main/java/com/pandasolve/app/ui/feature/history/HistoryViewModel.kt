@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pandasolve.app.data.repository.TaskRepository
 import com.pandasolve.app.ui.sample.SampleThread
-import com.pandasolve.app.ui.sample.sampleThreads
 import com.pandasolve.app.ui.sample.toRow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -17,15 +16,9 @@ import timber.log.Timber
 data class DayBucket(val tape: String, val date: String, val items: List<SampleThread>)
 
 data class ArchiveUiState(
-    val days: List<DayBucket> = sampleDays(),
-    val total: Int = 47,
+    val days: List<DayBucket> = emptyList(),
+    val total: Int = 0,
     val live: Boolean = false,
-)
-
-private fun sampleDays() = listOf(
-    DayBucket("сегодня", "30 мая", sampleThreads.take(2)),
-    DayBucket("вчера", "29 мая", sampleThreads.takeLast(2)),
-    DayBucket("ранее", "28 мая", sampleThreads.take(1)),
 )
 
 @HiltViewModel
@@ -47,9 +40,9 @@ class HistoryViewModel @Inject constructor(
                     val tape = when (idx) { 0 -> "сегодня"; 1 -> "вчера"; else -> "ранее" }
                     DayBucket(tape, date, items)
                 }
-                ArchiveUiState(days = days.ifEmpty { sampleDays() }, total = list.items.size, live = true)
+                ArchiveUiState(days = days, total = list.items.size, live = true)
             }.onSuccess { _state.value = it }
-                .onFailure { Timber.w(it, "archive load failed — keeping sample content") }
+                .onFailure { Timber.w(it, "archive load failed") }
         }
     }
 }

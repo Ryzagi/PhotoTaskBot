@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pandasolve.app.R
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.theme.Baloo
 import com.pandasolve.app.ui.theme.Nunito
 import com.pandasolve.app.ui.theme.cute
@@ -120,7 +121,7 @@ fun ShutterButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = cute
     Box(
         modifier
-            .size(78.dp)
+            .size(70.dp)
             .clip(CircleShape)
             .background(Brush.linearGradient(listOf(c.mint, c.sky)))
             .clickable(onClick = onClick)
@@ -153,10 +154,11 @@ fun CuteBottomBar(
     modifier: Modifier = Modifier,
 ) {
     val c = cute
+    val t = LocalStrings.current
     Box(
         modifier
             .fillMaxWidth()
-            .height(98.dp)
+            .height(84.dp)
             .background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to c.paper, 1f to c.paper)),
     ) {
         Row(
@@ -167,25 +169,17 @@ fun CuteBottomBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
-            NavSide("архив", active == CuteTab.Archive, c.mintDeep, c.mintSoft, c.inkFaint, onArchive) {
+            NavSide(t.navArchive, active == CuteTab.Archive, c.mintDeep, c.mintSoft, c.inkFaint, onArchive) {
                 // folder-ish glyph
                 Text("🗂", fontSize = 20.sp)
             }
             Spacer(Modifier.width(78.dp))
-            NavSideAvatar("профиль", active == CuteTab.Profile, c.mintDeep, c.mintSoft, c.inkFaint, onProfile)
+            NavSideAvatar(t.navProfile, active == CuteTab.Profile, c.mintDeep, c.mintSoft, c.inkFaint, onProfile)
         }
         // raised shutter
         Box(Modifier.align(Alignment.TopCenter).offset(y = 6.dp)) {
             ShutterButton(onClick = onCamera)
         }
-        Text(
-            "щёлк! 📸",
-            color = c.coralDeep,
-            fontFamily = com.pandasolve.app.ui.theme.Caveat,
-            fontWeight = FontWeight.W700,
-            fontSize = 15.sp,
-            modifier = Modifier.align(Alignment.TopCenter).offset(y = (-16).dp),
-        )
     }
 }
 

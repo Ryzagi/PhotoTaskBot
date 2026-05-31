@@ -13,6 +13,8 @@ data class Me(
     @SerialName("language_code") val languageCode: String,
     val balance: Balance,
     @SerialName("created_at") val createdAt: String,
+    @SerialName("solved_count") val solvedCount: Int = 0,
+    val streak: Int = 0,
 )
 
 @Serializable

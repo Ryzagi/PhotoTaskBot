@@ -43,7 +43,6 @@ fun HomeScreen(
 ) {
     val c = cute
     val s by viewModel.state.collectAsState()
-    val t = com.pandasolve.app.i18n.LocalStrings.current
     LaunchedEffect(Unit) { viewModel.refresh() }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
@@ -55,10 +54,10 @@ fun HomeScreen(
                 Panda(Modifier.size(40.dp))
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.inkSoft)
+                    Text("с возвращением,", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.inkSoft)
                     Text(if (s.name.isNotBlank()) "${s.name} ✿" else "🐼", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 19.sp, color = c.ink)
                 }
-                if (s.streak > 0) Pill("🔥 ${s.streak} ${t.daysShort}", c.butterSoft, c.butterDeep, c.butterShadow)
+                if (s.streak > 0) Pill("🔥 ${s.streak} дн.", c.butterSoft, c.butterDeep, c.butterShadow)
             }
 
             Spacer(Modifier.height(12.dp))
@@ -70,11 +69,11 @@ fun HomeScreen(
                     .border(2.dp, c.mint, RoundedCornerShape(28.dp))
                     .padding(16.dp),
             ) {
-                Text(t.bambooToday, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
+                Text("БАМБУК НА СЕГОДНЯ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("${s.daily}", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 44.sp, color = c.ink)
                     Spacer(Modifier.width(8.dp))
-                    Text(t.solutions, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.inkSoft, modifier = Modifier.padding(bottom = 12.dp))
+                    Text("решения", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.inkSoft, modifier = Modifier.padding(bottom = 12.dp))
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +83,7 @@ fun HomeScreen(
                     Spacer(Modifier.weight(1f))
                     if (s.subscription > 0) Box(
                         Modifier.clip(RoundedCornerShape(999.dp)).background(c.butterSoft).padding(horizontal = 10.dp, vertical = 5.dp),
-                    ) { Text("+${s.subscription} ⭐ ${t.donate}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = c.butterDeep) }
+                    ) { Text("+${s.subscription} ⭐ донат", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = c.butterDeep) }
                 }
             }
 
@@ -107,8 +106,8 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(t.recent, fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.ink)
-                Text(t.all, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.lavDeep)
+                Text("Недавние беседы", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.ink)
+                Text("все →", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.lavDeep)
             }
             Spacer(Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
