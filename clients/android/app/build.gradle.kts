@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.openapi.generator)
+    // Push (FCM): uncomment after adding app/google-services.json (see docs/clients/push-setup.md).
+    // alias(libs.plugins.google.services)
 }
 
 // Gradle only auto-loads `gradle.properties` into project properties. Read

@@ -6,4 +6,6 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.openapi.generator) apply false
     alias(libs.plugins.compose.compiler) apply false
+    // Push (FCM): uncomment after adding app/google-services.json.
+    // alias(libs.plugins.google.services) apply false
 }

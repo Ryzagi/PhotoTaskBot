@@ -1,13 +1,70 @@
+# PandaSolve backend — attaches to your EXISTING Caddy (no second proxy, no new domain).
+#
+# You already run Caddy + a web app on this box. Do NOT start another Caddy here —
+# two can't bind :443. Instead this app joins the docker network your Caddy is on,
+# and you add an `api.<your-domain>` block to your existing Caddyfile that does
+# `reverse_proxy pandasolve-api:8000`.
+#
+#   docker compose up -d                      → app + telegram_bot (solves inline)
+#   docker compose --profile async up -d      → also redis + worker (async + push)
+#
+# The app's :8000 is never published to the host. Set CADDY_NETWORK in .env to the
+# network your Caddy uses (find it with: docker network ls).
+
 services:
   app:
     build: .
     env_file:
       - .env
+    # Behind Caddy: trust X-Forwarded-* so client IP and https scheme are correct.
+    command: >
+      uvicorn bot.app.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=*
+    networks:
+      default: {}
+      proxy:
+        aliases:
+          - pandasolve-api        # your Caddy: reverse_proxy pandasolve-api:8000
+    # ── If your Caddy runs on the HOST (not in docker), delete the `proxy` network
+    #    above and instead bind to localhost, then `reverse_proxy 127.0.0.1:8001`:
+    # ports:
+    #   - "127.0.0.1:8001:8000"
     restart: always
 
   telegram_bot:
     build:
-        context: .
-        dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile
     command: python bot/app/tg_app.py
+    env_file:
+      - .env                       # bot token + INTERNAL_AUTH_SECRET for HMAC signing
+    depends_on:
+      - app
     restart: always
+
+  # ── Optional: async solving + push. Enable with `--profile async`. ──
+  redis:
+    image: redis:7-alpine
+    profiles: ["async"]
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  worker:
+    build: .
+    profiles: ["async"]
+    command: arq bot.tasks.worker.WorkerSettings
+    env_file:
+      - .env                       # needs REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: always
+
+networks:
+  default: {}
+  proxy:
+    external: true
+    name: ${CADDY_NETWORK:-caddy}  # the docker network your existing Caddy is on
+
+volumes:
+  redis_data:

@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.pandasolve.app.ui.feature.albums.AlbumsScreen
 import com.pandasolve.app.ui.feature.auth.SignInScreen
 import com.pandasolve.app.ui.feature.history.ArchiveScreen
@@ -80,7 +81,12 @@ fun AppNavigation() {
                 onSignOut = { nav.navigate(Routes.SIGN_IN) { popUpTo(Routes.HOME) { inclusive = true } } },
             )
         }
-        composable(Routes.TASK, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+        composable(
+            Routes.TASK,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            // Notification tap opens pandasolve://task/<id> (see FcmService + manifest intent-filter).
+            deepLinks = listOf(navDeepLink { uriPattern = "pandasolve://task/{id}" }),
+        ) { entry ->
             TaskDetailScreen(
                 taskId = entry.arguments?.getString("id").orEmpty(),
                 onBack = { nav.popBackStack() },

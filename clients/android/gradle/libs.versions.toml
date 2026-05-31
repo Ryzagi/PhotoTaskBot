@@ -28,6 +28,9 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
+# Push (FCM): uncomment the `google-services` plugin in build.gradle.kts after
+# dropping app/google-services.json from your Firebase project. See docs.
+google-services = { id = "com.google.gms.google-services", version = "4.4.2" }
 
 [libraries]
 androidx-core = { group = "androidx.core", name = "core-ktx", version = "1.13.1" }

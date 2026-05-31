@@ -18,7 +18,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -37,7 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -92,6 +96,9 @@ fun CameraScreen(
     }
     val mainExecutor = remember { ContextCompat.getMainExecutor(context) }
 
+    var mode by remember { mutableStateOf("photo") }   // "photo" | "text"
+    var problemText by remember { mutableStateOf("") }
+
     LaunchedEffect(hasPermission) {
         if (hasPermission) {
             val provider = context.getCameraProvider()
@@ -121,10 +128,38 @@ fun CameraScreen(
             Modifier.weight(1f).fillMaxWidth()
                 .background(Brush.radialGradient(listOf(Color(0xFF3A352D), VfDeep))),
         ) {
-            if (hasPermission) {
-                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-            } else {
-                Column(
+            when {
+                mode == "text" -> {
+                    // type-a-problem card
+                    Column(
+                        Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 104.dp, bottom = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
+                                .background(Color(0xFFFFFDF8)).padding(18.dp),
+                        ) {
+                            Text("УСЛОВИЕ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+                            Spacer(Modifier.height(8.dp))
+                            BasicTextField(
+                                value = problemText,
+                                onValueChange = { problemText = it },
+                                modifier = Modifier.fillMaxSize(),
+                                cursorBrush = SolidColor(c.mintDeep),
+                                textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 16.sp, color = c.ink, lineHeight = 23.sp),
+                                decorationBox = { inner ->
+                                    if (problemText.isEmpty()) {
+                                        Text("Напиши условие задачи…\nнапример: реши x² − 5x + 6 = 0",
+                                            fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 16.sp, color = c.inkFaint, lineHeight = 23.sp)
+                                    }
+                                    inner()
+                                },
+                            )
+                        }
+                    }
+                }
+                hasPermission -> AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                else -> Column(
                     Modifier.fillMaxSize().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
@@ -138,26 +173,27 @@ fun CameraScreen(
                     CandyButton("Разрешить", { permLauncher.launch(Manifest.permission.CAMERA) }, Modifier.fillMaxWidth(0.7f), Candy.Mint)
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        "или выбери из галереи →", fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 17.sp, color = c.lav,
-                        modifier = Modifier.clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        "или напиши текстом →", fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 17.sp, color = c.lav,
+                        modifier = Modifier.clickable { mode = "text" },
                     )
                 }
             }
 
-            // framing brackets
-            Box(Modifier.fillMaxSize().padding(top = 104.dp, start = 24.dp, end = 24.dp, bottom = 96.dp)) {
-                CornerBracket(Alignment.TopStart, c.mint)
-                CornerBracket(Alignment.TopEnd, c.mint)
-                CornerBracket(Alignment.BottomStart, c.mint)
-                CornerBracket(Alignment.BottomEnd, c.mint)
-            }
-
-            if (hasPermission) {
-                Box(
-                    Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)
-                        .clip(RoundedCornerShape(999.dp)).background(Color.Black.copy(alpha = 0.32f))
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                ) { Text("наведи на задачу ✏️", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 20.sp, color = Color.White) }
+            if (mode == "photo") {
+                // framing brackets
+                Box(Modifier.fillMaxSize().padding(top = 104.dp, start = 24.dp, end = 24.dp, bottom = 96.dp)) {
+                    CornerBracket(Alignment.TopStart, c.mint)
+                    CornerBracket(Alignment.TopEnd, c.mint)
+                    CornerBracket(Alignment.BottomStart, c.mint)
+                    CornerBracket(Alignment.BottomEnd, c.mint)
+                }
+                if (hasPermission) {
+                    Box(
+                        Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)
+                            .clip(RoundedCornerShape(999.dp)).background(Color.Black.copy(alpha = 0.32f))
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                    ) { Text("наведи на задачу ✏️", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 20.sp, color = Color.White) }
+                }
             }
 
             // top bar
@@ -197,18 +233,28 @@ fun CameraScreen(
             Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("ТЕКСТ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
-                    Text("ФОТО", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mint)
-                    Text("ФАЙЛ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f))
+                    fun modeColor(m: String) = if (mode == m) c.mint else Color.White.copy(alpha = 0.5f)
+                    Text("ТЕКСТ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("text"),
+                        modifier = Modifier.clickable { mode = "text" })
+                    Text("ФОТО", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("photo"),
+                        modifier = Modifier.clickable { mode = "photo" })
+                    Text("ФАЙЛ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                 }
-                // capture (CameraX)
+                // shutter — captures a photo or submits the typed problem
+                val canSubmit = if (mode == "text") problemText.isNotBlank() && !state.busy else hasPermission && !state.busy
                 Box(
                     Modifier.size(80.dp).clip(CircleShape).background(Color.White)
-                        .clickable(enabled = hasPermission && !state.busy) { capture() },
+                        .clickable(enabled = canSubmit) {
+                            if (mode == "text") viewModel.submitText(problemText) else capture()
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(Brush.linearGradient(listOf(c.mint, c.sky))), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.PhotoCamera, null, tint = Color.White, modifier = Modifier.size(26.dp))
+                        Icon(
+                            if (mode == "text") Icons.Filled.Check else Icons.Filled.PhotoCamera,
+                            null, tint = Color.White, modifier = Modifier.size(26.dp),
+                        )
                     }
                 }
                 // gallery fallback (picker)
