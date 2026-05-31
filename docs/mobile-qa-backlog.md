@@ -151,3 +151,87 @@ Legend: **type** = bug | feature · **area** = where the fix likely lives.
 6. **#4 language switch** (feature).
 
 Notes: push (#FCM) and Redis async are intentionally deferred (`docs/clients/push-setup.md`).
+
+---
+
+# Round 2 — post-retest (recorded 2026-05-31, all OPEN)
+
+Captured after testing the Round-1 build. Several depend on each other; see "Order" at
+the end. Items mix backend + client.
+
+## R2-1. Task titles (photo tasks show "(фото)")
+- **type:** feature · **area:** `bot/constants.py` (prompt), `bot/schemas/task.py`,
+  `bot/services/task_service.py`, `supabase_service` (store/list), client `TaskListItem`/`toRow`.
+- **Symptom:** list/preview shows "(фото)" for image tasks — no meaningful label.
+- **Approach:** add a `title` field to the solver's JSON output (a short phrase capturing the
+  task, in the task's language). Add `title` to the prompt schema in `constants.py`, persist it
+  (new `tasks.title` column — additive migration `0004`), surface it on `TaskListItem`
+  (fallback to `input_text`/"(фото)" when absent for old rows). Client shows `title` in
+  list rows and Task detail header. **Foundation for R2-3 (search).**
+
+## R2-2. Chat on a solution ("спросить ещё") — not working
+- **type:** feature · **area:** new `POST /v1/tasks/{id}/chat` + a `task_messages` table;
+  `gpt_service`/`gemini_service`; client `TaskDetailScreen` chat bar + a `ChatViewModel`.
+- **Symptom:** the "спросить ещё…" bar is inert (we removed the fake bubbles in #3; never wired).
+- **Approach:** persist a per-task message thread (`task_messages(id, task_id, role, content,
+  created_at)`); endpoint takes a question, calls the LLM with the original problem + solution +
+  prior turns as context, stores both turns, returns the reply. Client renders the thread and
+  sends. Costs a solve-credit? — decide (probably free or cheaper). Streaming optional.
+
+## R2-3. Search tab over completed tasks  (depends on R2-1)
+- **type:** feature · **area:** `GET /v1/tasks?q=` (ILIKE on `title`/`input_text`), client search UI.
+- **Approach:** add a `q` query param to the task list endpoint; case-insensitive match on
+  title + input_text (+ maybe solution text). Client: a search field (folded into the merged
+  Home per R2-7) filtering the list. Best after R2-1 so titles are searchable.
+
+## R2-4. Albums screen flashes mock albums before real ones
+- **type:** bug · **area:** `ui/feature/albums/AlbumsViewModel.kt` (+ Screen).
+- **Symptom:** opening Albums shows sample albums for ~1s, then the real ones.
+- **Cause:** same sample-default pattern we removed from Home/Archive/Profile — the Albums
+  state still defaults to sample data.
+- **Fix:** default to empty/loading, drop the sample fallback (mirror the #3 changes).
+
+## R2-5. Task→album relation missing after app restart
+- **type:** bug · **area:** `bot/schemas/task.py` (TaskDetail), `bot/services/task_service.py`
+  (`get`), client `Models.TaskDetail`, `TaskDetailViewModel.load()`, `TaskDetailScreen`.
+- **Symptom:** assign an album, reopen app, open the task → album no longer shown.
+- **Root cause (NOT a missing table):** the relation **is** persisted in `tasks.album_id`
+  (one album per task). The bug is it's never surfaced: `TaskDetail` has no `album_id`/album
+  fields on the backend OR client, and `load()` only sets `albumName` after an in-session
+  assign — it never reads the stored album on open. So after restart there's nothing to show.
+- **Fix:** add `album_id` (+ optional album name/emoji) to the backend `TaskDetail` schema and
+  `task_service.get`, add the field to the client `TaskDetail` model, and have
+  `TaskDetailViewModel.load()` populate `albumName` from it. A join table is only needed if we
+  want **multiple** albums per task — not required for current one-album design.
+
+## R2-6. Long-press to assign album from the list; filter shows only that album
+- **type:** feature · **area:** client list (merged Home per R2-7); backend filter already exists.
+- **Symptom/ask:** long-tap a task in the main list → assign-album sheet; default = all tasks;
+  selecting an album filters to only its tasks.
+- **Note:** backend already supports `GET /v1/tasks?album_id=` (see `task_service.list`). This is
+  mostly client UX: a long-press `combinedClickable` → album picker (reuse `AlbumPickerDialog`),
+  and album filter chips driving the `album_id` param. Pairs with R2-7.
+
+## R2-7. Merge Home + Archive into one screen  (LARGE — do last)
+- **type:** refactor/feature · **area:** `ui/feature/home/*`, `ui/feature/history/*`, `Navigation.kt`,
+  `CuteComponents` bottom bar.
+- **Ask:** Home and Archive (designs 2 & 5) are duplicative. Combine into one Home that has:
+  the **search bar** (from Archive, R2-3), tasks **grouped by day** (today/yesterday/earlier),
+  the **album row with a trailing "＋" pill** to create an album inline, and **long-press a task
+  to assign an album** (R2-6). Filtering by album shows only that album's tasks; otherwise all.
+- **Impact:** removes the Archive tab/route; bottom bar gets one fewer destination; fold
+  `HistoryViewModel` logic into `HomeViewModel`. Touches nav graph + bottom bar layout.
+
+## R2-8. Settings: language as a dropdown (not a toggle)
+- **type:** polish · **area:** `ui/feature/settings/SettingsScreen.kt`, `SettingsViewModel`.
+- **Ask:** replace the ru↔en tap-toggle with a `DropdownMenu` so more languages can be added.
+- **Note:** infra already supports it — `LanguageManager.set(code)` + `stringsFor(code)`; just
+  add a menu listing available languages and call `setLanguage(code)` (rename `toggleLanguage`).
+
+## Round-2 order / dependencies
+1. **R2-5** (album relation) + **R2-4** (albums mock flash) — small, high-value correctness.
+2. **R2-1** (titles) — unblocks R2-3; improves every list.
+3. **R2-8** (language dropdown) — quick polish.
+4. **R2-7** (merge Home+Archive) — large; absorbs **R2-3** (search) and **R2-6** (long-press
+   assign + album filter), so do those *as part of* R2-7 rather than twice.
+5. **R2-2** (chat) — independent, sizable feature; schedule on its own.
