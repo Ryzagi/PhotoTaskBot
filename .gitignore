@@ -33,6 +33,9 @@ clients/android/.kotlin/
 captures/
 .cxx/
 local.properties
+*.apk
+# macOS / iCloud conflict copies ("file 2.ext") — never commit these
+*\ 2.*
 
 # ───────── iOS / Swift ─────────
 clients/ios/.build/
