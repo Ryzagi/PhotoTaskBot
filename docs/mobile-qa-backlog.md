@@ -447,3 +447,31 @@ features, and a few backend pieces. Order/grouping at the end.
   in-memory; `SettingsViewModel`/`HomeViewModel` seed their initial state from them, so counts show
   instantly on re-open and then refresh. (First-ever load still fetches; cache is per app session.)
 - **Follow-up if needed:** persist the cache to DataStore to survive cold starts.
+
+---
+
+# Round 5 — post-retest (recorded 2026-06-01)
+
+## R5-1. Task detail waits to load — FIXED (pending re-test)
+- **Resolution:** `TaskRepository` now caches loaded `TaskDetail`s; `TaskDetailViewModel` paints
+  instantly from cache on re-open. The first load is also faster: the task GET runs **concurrently**
+  with albums + chat (previously it was queued behind both). `applyTask` re-resolves the album badge
+  when albums arrive. Cache is per app session.
+- **type:** perf · **area:** `data/repository/TaskRepository.kt`, `ui/feature/task/TaskDetailViewModel.kt`
+
+## R5-2. Language selector on sign-in + EN default — FIXED (pending re-test)
+- **Resolution:** `LanguageManager` now defaults to **en** on first run (was device-language).
+  Sign-in screen got a RU/EN selector (chips, top-right) wired to `SignInViewModel.setLanguage` →
+  `LanguageManager` → `LocalStrings` updates live. Localized the sign-in copy (greeting, title,
+  subtitle, email/password labels, sign-in button, OR divider, terms) via new `Strings` keys.
+- **type:** feature · **area:** `i18n/{LanguageManager,Localization}.kt`, `ui/feature/auth/{SignInScreen,SignInViewModel}.kt`
+
+## R5-3. Backend: speed up loading solutions — FIXED (needs redeploy)
+- **Root cause:** the slowness wasn't the DB read — it was **Supabase Storage signed-URL
+  generation** the client never uses. `task_service.get` made 2 Storage round-trips per detail
+  (thumbnail + image); `task_service.list` made **one per row** (up to 50 sequential calls).
+  The list/detail SQL is already indexed (`tasks_user_created_idx`).
+- **Fix:** stop generating those signed URLs (client renders math natively, shows no image) —
+  `thumbnail_url`/`image_url` now return null. List drops from (1 + N) round-trips to 1; detail
+  from 3 to 1. Re-add lazily / behind a `?thumbnails=true` flag if a client ever needs them.
+- **type:** perf (backend) · **area:** `bot/services/task_service.py`. **Needs redeploy.**

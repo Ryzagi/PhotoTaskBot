@@ -113,21 +113,18 @@ class TaskService:
         row = await self.db.get_task(task_id)
         if row is None or row.get("user_id") != user_id:
             return None
-        thumbnail_url = (
-            await self.db.signed_url(row["thumbnail_path"], ttl=3600)
-            if row.get("thumbnail_path") else None
-        )
-        image_url = (
-            await self.db.signed_url(row["image_path"], ttl=86400)
-            if row.get("image_path") else None
-        )
+        # NOTE: signed-URL generation is skipped — the mobile client renders math
+        # natively and shows no image/thumbnail. Generating them was 2 Supabase
+        # Storage round-trips per detail (and 1 per list row) of pure latency for
+        # unused data. Re-add lazily (or via a `?thumbnails=true` flag) if a client
+        # ever needs them.
         return TaskDetail(
             id=row["id"],
             status=row.get("status") or "done",
             input_kind=row.get("input_kind") or ("image" if row.get("file_path") else "text"),
             input_text=row.get("input_text"),
-            thumbnail_url=thumbnail_url,
-            image_url=image_url,
+            thumbnail_url=None,
+            image_url=None,
             solution=Solution.model_validate(row["solution"]) if row.get("solution") else None,
             album_id=str(row["album_id"]) if row.get("album_id") else None,
             model_used=row.get("model_used"),
@@ -205,10 +202,7 @@ class TaskService:
                     status=row.get("status") or "done",
                     input_kind=row.get("input_kind") or "text",
                     preview=preview,
-                    thumbnail_url=(
-                        await self.db.signed_url(row["thumbnail_path"], ttl=3600)
-                        if row.get("thumbnail_path") else None
-                    ),
+                    thumbnail_url=None,   # skip per-row signed URLs (unused) — was up to N Storage calls
                     created_at=row["created_at"],
                 )
             )
