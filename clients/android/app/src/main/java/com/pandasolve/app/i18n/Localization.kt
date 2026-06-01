@@ -107,3 +107,11 @@ fun stringsFor(languageCode: String): Strings =
     if (languageCode.lowercase().startsWith("en")) EnStrings else RuStrings
 
 val LocalStrings = staticCompositionLocalOf { RuStrings }
+
+/** Selectable UI languages (each shown in its own name). Add a row here to offer more. */
+data class LanguageOption(val code: String, val label: String)
+
+val supportedLanguages = listOf(
+    LanguageOption("ru", "Русский"),
+    LanguageOption("en", "English"),
+)

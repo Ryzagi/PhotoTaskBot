@@ -15,6 +15,22 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def _derive_title(solution: dict) -> str | None:
+    """Short label for the task. Prefer the model's `title`; else fall back to the
+    first problem statement, trimmed. Keeps photo tasks from showing just '(фото)'."""
+    if not isinstance(solution, dict):
+        return None
+    title = (solution.get("title") or "").strip()
+    if title:
+        return title[:120]
+    problems = solution.get("solutions") or []
+    if problems and isinstance(problems[0], dict):
+        first = (problems[0].get("problem") or "").strip()
+        if first:
+            return first[:120]
+    return None
+
+
 def _compute_streak(timestamps: list) -> int:
     """Consecutive days (ending today, or yesterday if nothing yet today) that
     have at least one solved task. `timestamps` are ISO strings or datetimes."""
@@ -556,6 +572,7 @@ class SupabaseService:
         self.supabase_client.table(self._task_table).update({
             "status": "done",
             "solution": solution,
+            "title": _derive_title(solution),
             "model_used": model_used,
             "completed_at": _utcnow().isoformat(),
         }).eq("id", task_id).execute()
@@ -574,7 +591,7 @@ class SupabaseService:
         self._ensure_session()
         q = (
             self.supabase_client.table(self._task_table)
-            .select("id, status, input_kind, input_text, thumbnail_path, file_path, created_at")
+            .select("id, status, input_kind, input_text, title, thumbnail_path, file_path, created_at")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .limit(limit)

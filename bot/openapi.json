@@ -382,6 +382,17 @@
             },
             "title": "Solutions",
             "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -429,6 +440,17 @@
       },
       "TaskDetail": {
         "properties": {
+          "album_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Album Id"
+          },
           "completed_at": {
             "anyOf": [
               {

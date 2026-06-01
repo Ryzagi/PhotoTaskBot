@@ -8,8 +8,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import com.pandasolve.app.i18n.LocalStrings
+import com.pandasolve.app.i18n.supportedLanguages
 import com.pandasolve.app.ui.component.CuteBottomBar
 import com.pandasolve.app.ui.component.CuteTab
 import com.pandasolve.app.ui.component.Panda
@@ -90,9 +96,20 @@ fun ProfileScreen(
                 Row2("✈️", c.skySoft, t.rowTelegram, null,
                     if (s.telegramLinked) t.rowTelegramLinked else t.rowTelegramUnlinked,
                     if (s.telegramLinked) c.mintDeep else c.inkSoft)
-                Row2("🌍", c.lavSoft, t.rowLanguage, null,
-                    if (s.language.startsWith("en")) t.languageNameEn else t.languageNameRu,
-                    c.lavDeep, onClick = { viewModel.toggleLanguage() })
+                Box {
+                    var langMenu by remember { mutableStateOf(false) }
+                    Row2("🌍", c.lavSoft, t.rowLanguage, null,
+                        supportedLanguages.firstOrNull { it.code == s.language }?.label ?: s.language,
+                        c.lavDeep, onClick = { langMenu = true })
+                    DropdownMenu(expanded = langMenu, onDismissRequest = { langMenu = false }) {
+                        supportedLanguages.forEach { opt ->
+                            DropdownMenuItem(
+                                text = { Text(opt.label) },
+                                onClick = { viewModel.setLanguage(opt.code); langMenu = false },
+                            )
+                        }
+                    }
+                }
                 Row2("🔔", c.butterSoft, t.rowNotifications, t.rowNotificationsHint, "→", c.inkSoft)
                 Row2("👋", c.coralSoft, t.rowSignOut, null, "→", c.coralDeep, danger = true, onClick = { viewModel.signOut(onSignOut) })
             }

@@ -54,12 +54,15 @@ class TaskDetailViewModel @Inject constructor(
                             answer = p.solution.joinToString("  ") { latexToUnicode(it.content) },
                         )
                     }.orEmpty()
-                    _state.update {
-                        it.copy(
+                    _state.update { st ->
+                        st.copy(
                             status = t.status,
                             condition = t.inputText?.let(::latexToUnicode)
-                                ?: problems.firstOrNull()?.problem ?: it.condition,
+                                ?: problems.firstOrNull()?.problem ?: st.condition,
                             problems = problems,   // real data only — no sample fallback
+                            // resolve the persisted album (tasks.album_id) so the badge
+                            // survives an app restart, not just an in-session assign.
+                            albumName = t.albumId?.let { id -> st.albums.firstOrNull { a -> a.id == id }?.name },
                             live = true,
                         )
                     }

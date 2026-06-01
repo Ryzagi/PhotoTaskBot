@@ -87,6 +87,7 @@ data class TaskDetail(
     @SerialName("input_kind") val inputKind: String,
     @SerialName("input_text") val inputText: String? = null,
     val solution: Solution? = null,
+    @SerialName("album_id") val albumId: String? = null,
     @SerialName("error_code") val errorCode: String? = null,
     @SerialName("thumbnail_url") val thumbnailUrl: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,

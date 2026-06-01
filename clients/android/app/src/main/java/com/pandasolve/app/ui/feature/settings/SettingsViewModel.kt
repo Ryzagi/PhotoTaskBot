@@ -38,12 +38,11 @@ class SettingsViewModel @Inject constructor(
     private val _state = MutableStateFlow(ProfileUiState(language = languageManager.language.value))
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
-    /** Toggle ru ↔ en: persist locally (drives LocalStrings immediately) and sync to backend. */
-    fun toggleLanguage() {
-        val next = if (_state.value.language.startsWith("en")) "ru" else "en"
-        languageManager.set(next)
-        _state.value = _state.value.copy(language = next)
-        viewModelScope.launch { runCatching { userRepo.updateLanguage(next) } }
+    /** Pick a UI language: persist locally (drives LocalStrings immediately) + sync to backend. */
+    fun setLanguage(code: String) {
+        languageManager.set(code)
+        _state.value = _state.value.copy(language = languageManager.language.value)
+        viewModelScope.launch { runCatching { userRepo.updateLanguage(languageManager.language.value) } }
     }
 
     fun refresh() {

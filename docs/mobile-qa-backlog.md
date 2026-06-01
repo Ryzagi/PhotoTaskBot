@@ -159,9 +159,17 @@ Notes: push (#FCM) and Redis async are intentionally deferred (`docs/clients/pus
 Captured after testing the Round-1 build. Several depend on each other; see "Order" at
 the end. Items mix backend + client.
 
-## R2-1. Task titles (photo tasks show "(фото)")
-- **type:** feature · **area:** `bot/constants.py` (prompt), `bot/schemas/task.py`,
-  `bot/services/task_service.py`, `supabase_service` (store/list), client `TaskListItem`/`toRow`.
+## R2-1. Task titles (photo tasks show "(фото)") — DONE backend (needs migration 0004 + redeploy)
+- **Resolution:** added an optional `title` to the GPT solver prompt
+  (`LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER`) + the `Solution` schema. `mark_task_done` stores a
+  derived title via `_derive_title()` (model's `title`, else first problem statement trimmed —
+  so Gemini-fallback and title-less solves still get a label). New migration `0004_task_title.sql`
+  (`tasks.title`). `list_tasks` selects it and `task_service.list` preview chain is now
+  `title → input_text → "(фото)"`. **Client needs no change** — it already renders `preview`.
+  `openapi.json` regenerated; 37 tests + ruff green.
+- **Deploy:** apply `0004` (else `mark_task_done` errors writing the new column) + redeploy.
+  Only **new** solves get titles; old image rows still show "(фото)" (no backfill).
+- **type:** feature · **area:** `bot/constants.py`, `bot/schemas/task.py`, `bot/supabase_service.py`, `bot/services/task_service.py`, `bot/migrations/0004_task_title.sql`
 - **Symptom:** list/preview shows "(фото)" for image tasks — no meaningful label.
 - **Approach:** add a `title` field to the solver's JSON output (a short phrase capturing the
   task, in the task's language). Add `title` to the prompt schema in `constants.py`, persist it
@@ -184,14 +192,24 @@ the end. Items mix backend + client.
   title + input_text (+ maybe solution text). Client: a search field (folded into the merged
   Home per R2-7) filtering the list. Best after R2-1 so titles are searchable.
 
-## R2-4. Albums screen flashes mock albums before real ones
+## R2-4. Albums screen flashes mock albums before real ones — FIXED (pending device re-test)
+- **Resolution:** `AlbumsUiState` defaulted to `sampleAlbums` and only replaced them
+  `if (list.isNotEmpty())` (so a zero-album user saw mock forever). Now defaults to empty and
+  always sets the real result on load. Client-only — no backend redeploy needed.
 - **type:** bug · **area:** `ui/feature/albums/AlbumsViewModel.kt` (+ Screen).
 - **Symptom:** opening Albums shows sample albums for ~1s, then the real ones.
 - **Cause:** same sample-default pattern we removed from Home/Archive/Profile — the Albums
   state still defaults to sample data.
 - **Fix:** default to empty/loading, drop the sample fallback (mirror the #3 changes).
 
-## R2-5. Task→album relation missing after app restart
+## R2-5. Task→album relation missing after app restart — FIXED (needs backend redeploy + re-test)
+- **Resolution:** confirmed the relation was persisted (`tasks.album_id`) but never surfaced.
+  Added `album_id` to the backend `TaskDetail` schema + `task_service.get` (`get_task` already
+  `select("*")`), added `albumId` to the client `TaskDetail` model, and `TaskDetailViewModel.load()`
+  now resolves `albumName` from the loaded album list by `albumId` — so the badge survives a
+  restart, not just an in-session assign. No join table needed (one album per task).
+  `openapi.json` regenerated; 37 tests + ruff green. **Needs backend redeploy** for the new
+  `album_id` field to appear in `/v1/tasks/{id}`.
 - **type:** bug · **area:** `bot/schemas/task.py` (TaskDetail), `bot/services/task_service.py`
   (`get`), client `Models.TaskDetail`, `TaskDetailViewModel.load()`, `TaskDetailScreen`.
 - **Symptom:** assign an album, reopen app, open the task → album no longer shown.
@@ -222,8 +240,12 @@ the end. Items mix backend + client.
 - **Impact:** removes the Archive tab/route; bottom bar gets one fewer destination; fold
   `HistoryViewModel` logic into `HomeViewModel`. Touches nav graph + bottom bar layout.
 
-## R2-8. Settings: language as a dropdown (not a toggle)
-- **type:** polish · **area:** `ui/feature/settings/SettingsScreen.kt`, `SettingsViewModel`.
+## R2-8. Settings: language as a dropdown (not a toggle) — FIXED (pending device re-test)
+- **Resolution:** added `supportedLanguages` (code+label list) in `i18n/Localization.kt`;
+  the Profile "🌍 Язык" row now opens a Material3 `DropdownMenu` over that list and calls the
+  generalized `SettingsViewModel.setLanguage(code)` (replaced `toggleLanguage`). Adding a
+  language later = one entry in `supportedLanguages` (+ an `EnStrings`-style table). Client-only.
+- **type:** polish · **area:** `i18n/Localization.kt`, `ui/feature/settings/SettingsScreen.kt`, `SettingsViewModel`.
 - **Ask:** replace the ru↔en tap-toggle with a `DropdownMenu` so more languages can be added.
 - **Note:** infra already supports it — `LanguageManager.set(code)` + `stringsFor(code)`; just
   add a menu listing available languages and call `setLanguage(code)` (rename `toggleLanguage`).

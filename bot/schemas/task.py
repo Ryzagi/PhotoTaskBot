@@ -18,6 +18,7 @@ class Problem(BaseModel):
 
 
 class Solution(BaseModel):
+    title: str | None = None
     solutions: list[Problem]
 
 
@@ -40,6 +41,7 @@ class TaskDetail(BaseModel):
     thumbnail_url: str | None = None
     image_url: str | None = None
     solution: Solution | None = None
+    album_id: str | None = None
     model_used: str | None = None
     error_code: str | None = None
     created_at: datetime

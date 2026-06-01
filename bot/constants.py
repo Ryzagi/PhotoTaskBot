@@ -259,9 +259,15 @@ CRITICAL LATEX FORMATTING RULES:
    - If problem is in English, solution must be in English
    - If problem has no language, solution must be in Russian
    - Always keep consistent language throughout problem, steps, solution
-   
+
+8. **Title**:
+   - Add a top-level "title": a short 3-6 word phrase capturing what the task is about,
+     in the task's language (e.g. "Решение квадратного уравнения"). Plain text, no LaTeX,
+     not the full problem statement. Used to label the task in history.
+
 Example for MATH problem with proper punctuation:
 {
+  "title": "Решение квадратного уравнения",
   "solutions": [{
     "problem": "Решите уравнение $x^2 - 5x + 6 = 0$",
     "steps": [

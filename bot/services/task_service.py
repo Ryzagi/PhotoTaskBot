@@ -122,6 +122,7 @@ class TaskService:
             thumbnail_url=thumbnail_url,
             image_url=image_url,
             solution=Solution.model_validate(row["solution"]) if row.get("solution") else None,
+            album_id=str(row["album_id"]) if row.get("album_id") else None,
             model_used=row.get("model_used"),
             error_code=row.get("error_code"),
             created_at=row["created_at"],
@@ -133,7 +134,11 @@ class TaskService:
         items = []
         next_before = None
         for row in rows:
-            preview = (row.get("input_text") or "").strip()[:120] or "(фото)"
+            preview = (
+                (row.get("title") or "").strip()
+                or (row.get("input_text") or "").strip()[:120]
+                or "(фото)"
+            )
             items.append(
                 TaskListItem(
                     id=row["id"],
