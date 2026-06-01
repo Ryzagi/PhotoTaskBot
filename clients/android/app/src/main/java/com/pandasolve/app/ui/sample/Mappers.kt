@@ -1,6 +1,7 @@
 package com.pandasolve.app.ui.sample
 
 import com.pandasolve.app.domain.model.TaskListItem
+import com.pandasolve.app.latex.latexToUnicode
 import com.pandasolve.app.ui.theme.Butter
 import com.pandasolve.app.ui.theme.ButterSoft
 import com.pandasolve.app.ui.theme.Coral
@@ -19,7 +20,7 @@ private val albumColors = listOf(Mint, Coral, Lav, Sky, Butter)
 fun TaskListItem.toRow(index: Int): SampleThread = SampleThread(
     glyph = if (inputKind == "image") "🖼" else "📝",
     isMath = false,
-    preview = preview.ifBlank { "Без названия" },
+    preview = latexToUnicode(preview).ifBlank { "Без названия" },
     status = if (status == "done") TStatus.Done else TStatus.Talking,
     album = inputKind,
     albumColor = albumColors[index % albumColors.size],

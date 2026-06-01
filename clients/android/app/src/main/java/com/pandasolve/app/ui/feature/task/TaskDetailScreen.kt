@@ -48,9 +48,12 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
     val first = s.problems.firstOrNull()
     var showPicker by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
+    val scroll = rememberScrollState()
+    // Keep the newest chat visible as messages arrive / while typing.
+    LaunchedEffect(s.chat.size, s.sending) { scroll.animateScrollTo(scroll.maxValue) }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            Modifier.fillMaxSize().verticalScroll(scroll)
                 .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 100.dp),
         ) {
             // top
@@ -133,9 +136,9 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             }
         }
 
-        // chat bar
+        // chat bar (lifts above the keyboard)
         Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(20.dp)
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(20.dp)
                 .clip(RoundedCornerShape(999.dp)).background(c.card).border(2.dp, c.line, RoundedCornerShape(999.dp))
                 .padding(start = 18.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,

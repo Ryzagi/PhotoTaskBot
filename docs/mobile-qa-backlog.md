@@ -287,3 +287,130 @@ the end. Items mix backend + client.
 4. **R2-7** (merge Home+Archive) — large; absorbs **R2-3** (search) and **R2-6** (long-press
    assign + album filter), so do those *as part of* R2-7 rather than twice.
 5. **R2-2** (chat) — independent, sizable feature; schedule on its own.
+
+---
+
+# Round 3 — post-retest (recorded 2026-06-01, all OPEN)
+
+Captured after testing the merged-Home + chat build. Mix of quick polish, client
+features, and a few backend pieces. Order/grouping at the end.
+
+## R3-1. Chat input hidden by keyboard — FIXED (pending re-test)
+- **Resolution:** chat bar gets `imePadding()` + `navigationBarsPadding()` so it rides above the
+  keyboard; hoisted the scroll state and added `LaunchedEffect(chat.size, sending){ animateScrollTo(max) }`
+  so the newest message stays visible.
+- **type:** bug · **area:** `TaskDetailScreen.kt` (chat bar + scroll container).
+- **Symptom:** typing in "спросить ещё" — the IME covers the input; the view doesn't scroll up.
+- **Fix:** add `Modifier.imePadding()` to the chat bar (and/or the screen), and auto-scroll the
+  content to the newest message on focus/send. The screen is a `verticalScroll` Column with the
+  bar overlaid at `BottomCenter` — likely switch to a layout that lifts the bar above the IME
+  (`Scaffold`/`imePadding`/`WindowInsets.ime`).
+
+## R3-2. Task title shows raw LaTeX — FIXED (pending re-test)
+- **Resolution:** `toRow` runs the preview through `latexToUnicode` (covers old rows too).
+- **type:** bug · **area:** `ui/sample/Mappers.kt` `toRow` (preview) — or backend `_derive_title`.
+- **Cause:** the LLM `title`/first-problem text contains LaTeX; the list shows it raw.
+- **Fix:** run `latexToUnicode` on the preview in `toRow` (client), or strip LaTeX in
+  `_derive_title` (backend). Client-side is simplest and covers old rows.
+
+## R3-3. Rename a task (long-press)
+- **type:** feature · **area:** new `PATCH /v1/tasks/{id}` (title); long-press menu on Home.
+- **Cause/approach:** `tasks.title` already exists (0004). Add an endpoint to update it +
+  `TaskService`/`SupabaseService` method. Client: long-press a task → action sheet with
+  **Assign album** + **Rename** (rename → text dialog → `PATCH`, refresh). Currently long-press
+  only opens the album picker — needs a small chooser first.
+
+## R3-4. Task detail doesn't show its album
+- **type:** bug · **area:** R2-5 path; verify backend redeploy + the chip rendering.
+- **Note:** R2-5 added `album_id` to `TaskDetail` + resolves the badge — confirm the backend was
+  redeployed (field present) and the chip shows the album name, not "выбрать альбом". May also
+  want it more prominent (label "Альбом: …").
+
+## R3-5. Empty-search state — FIXED (pending re-test)
+- **Resolution:** added `Strings.searchEmpty`; Home shows it when `query` is non-blank and no results.
+- **type:** polish · **area:** `HomeScreen.kt` (empty branch).
+- **Fix:** when `query` is non-blank and `days` is empty, show "Ничего не нашлось — попробуй
+  иначе" / "Nothing here — try another search" (distinct from the no-tasks-yet message). Add a
+  `Strings` key for it.
+
+## R3-6. Rename user (display name) via pencil on Profile
+- **type:** feature · **area:** `users` display name (additive migration) + `POST /v1/me`;
+  `SettingsScreen` name + pencil.
+- **Approach:** add `users.display_name` (or reuse `first_name`); extend `UpdateMeRequest` +
+  `MeResponse` with `display_name`; Profile shows the name with a ✏️ that opens a rename dialog →
+  `POST /v1/me`. Home greeting then uses it too (instead of the email local-part).
+
+## R3-7. Notifications On/Off switch on Profile
+- **type:** feature · **area:** `SettingsScreen` row → `Switch`; `DeviceRepository` register/unregister.
+- **Will it work?** Yes mechanically: ON → register FCM token (`/v1/devices`), OFF → unregister
+  (`DELETE /v1/devices/{token}`); persist the pref (DataStore/SharedPrefs). **But** actual push
+  delivery still needs the Firebase setup (`google-services.json`) from `docs/clients/push-setup.md`.
+  So the switch controls opt-in; pushes arrive only once FCM is configured.
+
+## R3-8. Profile action rows: bold font — FIXED (pending re-test)
+- **Resolution:** `Row2` label weight W600→W800.
+- **type:** polish · **area:** `SettingsScreen.kt` `Row2` label.
+- **Fix:** bump the row label `FontWeight` (W600 → W700/W800) for "Пополнить бамбук", "Telegram", etc.
+
+## R3-9. Home: remove the ✿ next to the nickname — FIXED (pending re-test)
+- **Resolution:** greeting now shows just the name.
+- **type:** polish · **area:** `HomeScreen.kt` greeting.
+- **Fix:** drop the `"${s.name} ✿"` flower → just the name.
+
+## R3-10. Home: bamboo leaves when balance > 5 — FIXED (pending re-test)
+- **Resolution:** leaf row capped at 5; a `+N` mint badge shows the overflow (the big number is exact).
+- **type:** bug/design · **area:** `HomeScreen.kt` leaf row.
+- **Cause:** leaves are `repeat(daily.coerceIn(0,5))` — caps at 5, so >5 (e.g. via subscription)
+  looks wrong. **Fix:** decide a representation for >5 — e.g. show 5 leaves + a "×N" / numeric
+  badge, or render the number prominently and leaves as a small accent. Needs a design call.
+
+## R3-11. Home: collapsible day groups — FIXED (pending re-test)
+- **Resolution:** each day header is clickable with a ▾/▸ chevron; per-day `dayOpen` map (today open by default).
+- **type:** feature · **area:** `HomeScreen.kt` day sections.
+- **Cause:** the old Archive had collapsible days with a chevron; the merged Home shows all
+  expanded. **Fix:** make each day header clickable with a ▸/▾ chevron toggling its task list
+  (per-day expanded state; default today open).
+
+## R3-12. Albums: "＋" emoji picker — FIXED (pending re-test)
+- **Resolution:** a ＋ tile after the preset emojis opens a text field to paste any emoji (localized hint); highlights when a custom one is set.
+- **type:** feature · **area:** `AlbumDialogs.kt` (`AlbumEditorDialog` emoji row).
+- **Fix:** add a `＋` tile after the fixed `ALBUM_EMOJIS` that lets the user enter any emoji
+  (a tiny text field accepting one glyph, or a larger emoji grid/system picker).
+
+## R3-13. Albums: create/edit dialog not localized — FIXED (pending re-test)
+- **Resolution:** added 13 `Strings` keys; `AlbumEditorDialog` + `AlbumPickerDialog` read `LocalStrings`.
+- **type:** bug · **area:** `AlbumDialogs.kt` (+ `Strings`).
+- **Cause:** `AlbumEditorDialog`/`AlbumPickerDialog` have hardcoded Russian ("Новый альбом",
+  "НАЗВАНИЕ", "ЗНАЧОК", "ЦВЕТ", "Создать/Сохранить/Удалить/Отмена", "В какой альбом?",
+  "Без альбома", placeholder). **Fix:** add `Strings` keys + read `LocalStrings.current`.
+
+## R3-14. Layout doesn't fit the phone screen — FIXED (first pass, pending re-test)
+- **Resolution:** edge-to-edge insets — `statusBarsPadding()` wraps the nav content (MainActivity), `navigationBarsPadding()` on the bottom bar + the task chat bar. If a specific screen still clips, point me at it.
+- **type:** bug · **area:** screen roots (insets).
+- **Cause (likely):** screens don't apply system-bar insets, so content sits under the status/nav
+  bars. **Fix:** apply `WindowInsets.statusBars`/`navigationBars`/`safeDrawing` padding at the
+  screen roots (or `Scaffold`); verify on-device. Related to R3-1 (ime insets).
+
+## R3-15. Day headers: capitalize + format dates — FIXED (pending re-test)
+- **Resolution:** labels capitalized; dates formatted `2026-05-30`→`30 мая`/`May 30` (lang from `LocalStrings`); slightly bigger/bolder. NOTE: exact screen-5 styling can be refined further if needed.
+- **type:** polish · **area:** `HomeScreen.kt` day header + date formatting; `Strings`.
+- **Fix:** "today" → "Today"/"Сегодня" (capitalized); format the date (ISO `2026-05-30` →
+  "30 мая" / "May 30") instead of the raw prefix; match the tape/heading styling in
+  `clients/design/screens-cute.html` (screen 5). Date formatting probably belongs in the VM or a
+  small helper.
+
+## R3-16. Free chat limit (3 messages, then top up)
+- **type:** feature · **area:** `bot/services/task_service.chat` + billing; client chat UI.
+- **Approach:** allow N free assistant replies per task (or per user); count existing `user`
+  messages in `task_messages`; when exceeded, return a limit signal (e.g. 402 / a flag) instead of
+  calling the LLM. Client shows remaining ("осталось 2 из 3") and, when exhausted, a top-up prompt
+  → Telegram deep link (`/v1/topup/url`). Decide free-count scope (per task vs per day) + whether
+  it consumes the bamboo balance instead of a separate counter.
+
+## Round-3 order / grouping
+1. **Quick polish (client-only):** R3-9 (flower), R3-8 (bold), R3-2 (title LaTeX), R3-5 (empty
+   search), R3-13 (localize album dialogs), R3-15 (day headers).
+2. **Client UX:** R3-1 (chat keyboard), R3-11 (collapsible days), R3-14 (insets/fit),
+   R3-12 (emoji picker +), R3-10 (>5 leaves — needs design call), R3-4 (verify album badge).
+3. **Backend + client features:** R3-6 (rename user), R3-3 (rename task), R3-7 (notif switch),
+   R3-16 (free chat limit).

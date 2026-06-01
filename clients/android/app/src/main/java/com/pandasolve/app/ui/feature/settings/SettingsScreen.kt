@@ -151,7 +151,7 @@ private fun Row2(emoji: String, iconBg: Color, label: String, hint: String?, tra
         Box(Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(iconBg), contentAlignment = Alignment.Center) { Text(emoji, fontSize = 16.sp) }
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, fontFamily = Baloo, fontWeight = FontWeight.W600, fontSize = 14.sp, color = if (danger) c.coralDeep else c.ink)
+            Text(label, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 14.sp, color = if (danger) c.coralDeep else c.ink)
             if (hint != null) Text(hint.uppercase(), fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 10.sp, color = c.inkFaint)
         }
         Text(trail, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = trailColor)

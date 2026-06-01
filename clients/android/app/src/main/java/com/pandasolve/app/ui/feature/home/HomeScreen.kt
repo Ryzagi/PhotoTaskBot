@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pandasolve.app.domain.model.Album
+import com.pandasolve.app.i18n.EnStrings
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.AlbumEditorDialog
 import com.pandasolve.app.ui.component.AlbumOption
@@ -61,6 +63,7 @@ fun HomeScreen(
     var assignTaskId by remember { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var editAlbum by remember { mutableStateOf<Album?>(null) }
+    val dayOpen = remember { mutableStateMapOf<String, Boolean>() }   // date → expanded
 
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         LazyColumn(
@@ -74,7 +77,7 @@ fun HomeScreen(
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.inkSoft)
-                        Text(if (s.name.isNotBlank()) "${s.name} ✿" else "🐼", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 19.sp, color = c.ink)
+                        Text(if (s.name.isNotBlank()) s.name else "🐼", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 19.sp, color = c.ink)
                     }
                     if (s.streak > 0) Pill("🔥 ${s.streak} ${t.daysShort}", c.butterSoft, c.butterDeep, c.butterShadow)
                 }
@@ -98,6 +101,10 @@ fun HomeScreen(
                         val filled = s.daily.coerceIn(0, 5)
                         repeat(filled) { Leaf(c.mint, c.mintShadow); Spacer(Modifier.width(6.dp)) }
                         repeat(5 - filled) { Leaf(c.line, Color(0xFFE0D3BF)); Spacer(Modifier.width(6.dp)) }
+                        // balance can exceed 5 (raised daily limit) — show +N, not 20 leaves
+                        if (s.daily > 5) Box(
+                            Modifier.clip(RoundedCornerShape(999.dp)).background(c.mintSoft).padding(horizontal = 8.dp, vertical = 3.dp),
+                        ) { Text("+${s.daily - 5}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep) }
                         Spacer(Modifier.weight(1f))
                         if (s.subscription > 0) Box(
                             Modifier.clip(RoundedCornerShape(999.dp)).background(c.butterSoft).padding(horizontal = 10.dp, vertical = 5.dp),
@@ -126,26 +133,39 @@ fun HomeScreen(
 
             if (s.days.isEmpty()) {
                 item {
-                    Text(t.noTasks, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
-                        modifier = Modifier.padding(vertical = 24.dp))
+                    Text(
+                        if (s.query.isNotBlank()) t.searchEmpty else t.noTasks,
+                        fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
                 }
             } else {
                 s.days.forEachIndexed { idx, day ->
                     item {
                         val label = when (idx) { 0 -> t.dayToday; 1 -> t.dayYesterday; else -> t.dayEarlier }
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(label, fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.ink)
+                            .replaceFirstChar { it.uppercase() }
+                        val isOpen = dayOpen[day.date] ?: (idx == 0)   // today open by default
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .clickable { dayOpen[day.date] = !isOpen }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Text(label, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 17.sp, color = c.ink)
                             Spacer(Modifier.width(8.dp))
-                            Text(day.date, fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
+                            Text(prettyDate(day.date, t == EnStrings), fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
+                            Spacer(Modifier.weight(1f))
+                            Text(if (isOpen) "▾" else "▸", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 14.sp, color = c.inkFaint)
                         }
-                        Spacer(Modifier.height(10.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                            day.items.forEach { card ->
-                                ThreadCard(
-                                    card,
-                                    onClick = { if (card.id.isNotBlank()) onTask(card.id) },
-                                    onLongClick = { if (card.id.isNotBlank()) assignTaskId = card.id },
-                                )
+                        if (isOpen) {
+                            Spacer(Modifier.height(10.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                                day.items.forEach { card ->
+                                    ThreadCard(
+                                        card,
+                                        onClick = { if (card.id.isNotBlank()) onTask(card.id) },
+                                        onLongClick = { if (card.id.isNotBlank()) assignTaskId = card.id },
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.height(16.dp))
@@ -188,6 +208,24 @@ fun HomeScreen(
             onDelete = { viewModel.deleteAlbum(a.id); editAlbum = null },
         )
     }
+}
+
+private val RU_MONTHS = listOf(
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+)
+private val EN_MONTHS = listOf(
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+/** "2026-05-30" → "30 мая" / "May 30". Falls back to the raw string on any surprise. */
+private fun prettyDate(iso: String, en: Boolean): String {
+    val p = iso.split("-")
+    val m = p.getOrNull(1)?.toIntOrNull()?.minus(1)
+    val d = p.getOrNull(2)?.toIntOrNull()
+    if (p.size != 3 || m == null || d == null || m !in 0..11) return iso
+    return if (en) "${EN_MONTHS[m]} $d" else "$d ${RU_MONTHS[m]}"
 }
 
 @Composable

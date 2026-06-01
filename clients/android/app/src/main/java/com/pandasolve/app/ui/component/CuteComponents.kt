@@ -158,6 +158,7 @@ fun CuteBottomBar(
     Box(
         modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .height(84.dp)
             .background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to c.paper, 1f to c.paper)),
     ) {

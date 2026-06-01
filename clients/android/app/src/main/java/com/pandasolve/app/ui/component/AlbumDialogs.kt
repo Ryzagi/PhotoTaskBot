@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.theme.Baloo
 import com.pandasolve.app.ui.theme.Nunito
 import com.pandasolve.app.ui.theme.cute
@@ -60,9 +61,10 @@ fun AlbumPickerDialog(
     onPick: (AlbumOption?) -> Unit,
 ) {
     val c = cute
+    val t = LocalStrings.current
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(28.dp)).background(c.paper).padding(20.dp)) {
-            Text("В какой альбом? 🗂️", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 20.sp, color = c.ink)
+            Text(t.albumPickerTitle, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 20.sp, color = c.ink)
             Spacer(Modifier.height(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 albums.forEach { a ->
@@ -78,7 +80,7 @@ fun AlbumPickerDialog(
                     }
                 }
                 if (albums.isEmpty()) {
-                    Text("Пока нет альбомов — создай их на главном экране (＋).",
+                    Text(t.albumPickerEmpty,
                         fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = c.inkFaint)
                 }
                 Row(
@@ -88,7 +90,7 @@ fun AlbumPickerDialog(
                 ) {
                     Text("✕", fontSize = 16.sp, color = c.coralDeep)
                     Spacer(Modifier.width(12.dp))
-                    Text("Без альбома", fontFamily = Baloo, fontWeight = FontWeight.W600, fontSize = 15.sp, color = c.coralDeep)
+                    Text(t.albumNone, fontFamily = Baloo, fontWeight = FontWeight.W600, fontSize = 15.sp, color = c.coralDeep)
                 }
             }
         }
@@ -107,14 +109,16 @@ fun AlbumEditorDialog(
     onDelete: (() -> Unit)? = null,
 ) {
     val c = cute
+    val t = LocalStrings.current
     var name by remember { mutableStateOf(initialName) }
     var emoji by remember { mutableStateOf(initialEmoji) }
     var color by remember { mutableStateOf(initialColor) }
+    var customIcon by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(28.dp)).background(c.paper).padding(22.dp)) {
             Text(
-                if (isEdit) "Альбом ✏️" else "Новый альбом ✨",
+                if (isEdit) t.albumEditTitle else t.albumNewTitle,
                 fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 22.sp, color = c.ink,
             )
             Spacer(Modifier.height(16.dp))
@@ -123,36 +127,63 @@ fun AlbumEditorDialog(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.card)
                     .border(2.dp, c.mint, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
             ) {
-                Text("НАЗВАНИЕ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+                Text(t.albumNameLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
                 Spacer(Modifier.height(3.dp))
                 BasicTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
                     cursorBrush = SolidColor(c.mintDeep),
                     textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink),
                     decorationBox = { inner ->
-                        if (name.isEmpty()) Text("например, Химия", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
+                        if (name.isEmpty()) Text(t.albumNameHint, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
                         inner()
                     },
                 )
             }
 
             Spacer(Modifier.height(16.dp))
-            Text("ЗНАЧОК", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+            Text(t.albumIconLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
             Spacer(Modifier.height(8.dp))
+            val isCustom = emoji !in ALBUM_EMOJIS
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ALBUM_EMOJIS.forEach { e ->
                     Box(
                         Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
-                            .background(if (e == emoji) c.mintSoft else c.card)
-                            .border(2.dp, if (e == emoji) c.mint else c.line, RoundedCornerShape(14.dp))
-                            .clickable { emoji = e },
+                            .background(if (e == emoji && !customIcon) c.mintSoft else c.card)
+                            .border(2.dp, if (e == emoji && !customIcon) c.mint else c.line, RoundedCornerShape(14.dp))
+                            .clickable { emoji = e; customIcon = false },
                         contentAlignment = Alignment.Center,
                     ) { Text(e, fontSize = 20.sp) }
+                }
+                // "＋" — pick any other emoji
+                Box(
+                    Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
+                        .background(if (isCustom || customIcon) c.mintSoft else c.card)
+                        .border(2.dp, if (isCustom || customIcon) c.mint else c.line, RoundedCornerShape(14.dp))
+                        .clickable { customIcon = true },
+                    contentAlignment = Alignment.Center,
+                ) { Text(if (isCustom) emoji else "＋", fontSize = if (isCustom) 20.sp else 18.sp, color = c.lavDeep) }
+            }
+            if (customIcon) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.clip(RoundedCornerShape(14.dp)).background(c.card)
+                        .border(2.dp, c.mint, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BasicTextField(
+                        value = if (isCustom) emoji else "", onValueChange = { emoji = it.trim().take(4) }, singleLine = true,
+                        cursorBrush = SolidColor(c.mintDeep),
+                        textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.ink),
+                        decorationBox = { inner ->
+                            if (!isCustom) Text(t.albumCustomIconHint, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = c.inkFaint)
+                            inner()
+                        },
+                    )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
-            Text("ЦВЕТ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+            Text(t.albumColorLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 ALBUM_COLOR_KEYS.forEach { key ->
@@ -167,12 +198,12 @@ fun AlbumEditorDialog(
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (isEdit && onDelete != null) {
-                    CandyButton("Удалить", onDelete, Modifier.weight(1f), Candy.Ghost)
+                    CandyButton(t.albumDelete, onDelete, Modifier.weight(1f), Candy.Ghost)
                 } else {
-                    CandyButton("Отмена", onDismiss, Modifier.weight(1f), Candy.Ghost)
+                    CandyButton(t.cancel, onDismiss, Modifier.weight(1f), Candy.Ghost)
                 }
                 CandyButton(
-                    if (isEdit) "Сохранить" else "Создать",
+                    if (isEdit) t.albumSave else t.albumCreate,
                     { onSave(name, emoji, color) }, Modifier.weight(1f), Candy.Mint, enabled = name.isNotBlank(),
                 )
             }

@@ -8,8 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.pandasolve.app.ui.AppNavigation
 import com.pandasolve.app.ui.theme.PandaSolveTheme
@@ -35,7 +39,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             PandaSolveTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    AppNavigation()
+                    // Edge-to-edge: keep content below the status bar / notch.
+                    Box(Modifier.fillMaxSize().statusBarsPadding()) {
+                        AppNavigation()
+                    }
                 }
             }
         }
