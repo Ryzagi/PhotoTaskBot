@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageProxy
@@ -15,6 +16,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -98,15 +101,18 @@ fun CameraScreen(
 
     var mode by remember { mutableStateOf("photo") }   // "photo" | "text"
     var problemText by remember { mutableStateOf("") }
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    var torchOn by remember { mutableStateOf(false) }
 
     LaunchedEffect(hasPermission) {
         if (hasPermission) {
             val provider = context.getCameraProvider()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
             provider.unbindAll()
-            runCatching {
+            camera = runCatching {
                 provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
-            }
+            }.getOrNull()
+            torchOn = false
         }
     }
 
@@ -158,7 +164,20 @@ fun CameraScreen(
                         }
                     }
                 }
-                hasPermission -> AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                hasPermission -> AndroidView(
+                    factory = { previewView },
+                    modifier = Modifier.fillMaxSize().pointerInput(camera) {
+                        // pinch-to-zoom, like the stock camera
+                        detectTransformGestures { _, _, zoom, _ ->
+                            val cam = camera ?: return@detectTransformGestures
+                            val zs = cam.cameraInfo.zoomState.value
+                            val current = zs?.zoomRatio ?: 1f
+                            val min = zs?.minZoomRatio ?: 1f
+                            val max = zs?.maxZoomRatio ?: 1f
+                            cam.cameraControl.setZoomRatio((current * zoom).coerceIn(min, max))
+                        }
+                    },
+                )
                 else -> Column(
                     Modifier.fillMaxSize().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -180,13 +199,6 @@ fun CameraScreen(
             }
 
             if (mode == "photo") {
-                // framing brackets
-                Box(Modifier.fillMaxSize().padding(top = 104.dp, start = 24.dp, end = 24.dp, bottom = 96.dp)) {
-                    CornerBracket(Alignment.TopStart, c.mint)
-                    CornerBracket(Alignment.TopEnd, c.mint)
-                    CornerBracket(Alignment.BottomStart, c.mint)
-                    CornerBracket(Alignment.BottomEnd, c.mint)
-                }
                 if (hasPermission) {
                     Box(
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)
@@ -213,7 +225,15 @@ fun CameraScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("панда готова", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = Color.White)
                 }
-                RoundBtn(onClick = {}) { Text("⚡", fontSize = 16.sp) }
+                RoundBtn(
+                    onClick = {
+                        camera?.let { cam ->
+                            torchOn = !torchOn
+                            cam.cameraControl.enableTorch(torchOn)
+                        }
+                    },
+                    active = torchOn,
+                ) { Text("⚡", fontSize = 16.sp) }
             }
         }
 
@@ -299,28 +319,10 @@ private suspend fun Context.getCameraProvider(): ProcessCameraProvider =
     }
 
 @Composable
-private fun BoxScope.CornerBracket(align: Alignment, color: Color) {
-    val tl = align == Alignment.TopStart
-    val tr = align == Alignment.TopEnd
-    val bl = align == Alignment.BottomStart
+private fun RoundBtn(onClick: () -> Unit, active: Boolean = false, content: @Composable () -> Unit) {
     Box(
-        Modifier.align(align).size(36.dp)
-            .border(
-                width = 4.dp, color = color,
-                shape = RoundedCornerShape(
-                    topStart = if (tl) 18.dp else 0.dp,
-                    topEnd = if (tr) 18.dp else 0.dp,
-                    bottomStart = if (bl) 18.dp else 0.dp,
-                    bottomEnd = if (!tl && !tr && !bl) 18.dp else 0.dp,
-                ),
-            ),
-    )
-}
-
-@Composable
-private fun RoundBtn(onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(
-        Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f))
+        Modifier.size(40.dp).clip(CircleShape)
+            .background(if (active) cute.butter else Color.White.copy(alpha = 0.16f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }

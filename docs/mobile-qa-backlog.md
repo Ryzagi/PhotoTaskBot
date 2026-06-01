@@ -475,3 +475,21 @@ features, and a few backend pieces. Order/grouping at the end.
   `thumbnail_url`/`image_url` now return null. List drops from (1 + N) round-trips to 1; detail
   from 3 to 1. Re-add lazily / behind a `?thumbnails=true` flag if a client ever needs them.
 - **type:** perf (backend) · **area:** `bot/services/task_service.py`. **Needs redeploy.**
+
+---
+
+# Round 6 — Android camera (recorded 2026-06-01)
+
+## R6-1. Remove green framing brackets — FIXED
+- Removed the 4 `CornerBracket` overlays (and the now-unused composable) from `SolveScreen`.
+  The "наведи на задачу ✏️" hint stays.
+
+## R6-2. Flashlight (torch) button — FIXED
+- The top-right ⚡ button now toggles `camera.cameraControl.enableTorch()`. Captured the bound
+  `Camera` from `bindToLifecycle`; button highlights (butter bg) when on; torch resets on rebind.
+
+## R6-3. Pinch-to-zoom — FIXED
+- Added `detectTransformGestures` on the preview `AndroidView`; pinch scales
+  `cameraControl.setZoomRatio(current * zoom)` clamped to the camera's min/max zoom (stock-camera feel).
+
+All three: client-only, build green. `SolveScreen.kt`.
