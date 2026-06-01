@@ -14,8 +14,10 @@ final class APIClient {
         self.baseURL = URL(string: Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String ?? "https://api.pandasolve.app")!
         self.auth = auth
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 30
-        cfg.timeoutIntervalForResource = 60
+        // Without Redis the backend solves inline, so POST /v1/tasks holds the
+        // request for the whole solve (GPT + Gemini). Give it room (matches Android).
+        cfg.timeoutIntervalForRequest = 180
+        cfg.timeoutIntervalForResource = 200
         self.session = URLSession(configuration: cfg)
         self.decoder = JSONDecoder()
         self.decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -39,8 +41,25 @@ final class APIClient {
     }
 
     func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        try await send(path, method: "POST", body: body)
+    }
+
+    func patch<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        try await send(path, method: "PATCH", body: body)
+    }
+
+    /// DELETE with no response body expected.
+    func delete(_ path: String) async throws {
         var req = URLRequest(url: baseURL.appendingPathComponent(path))
-        req.httpMethod = "POST"
+        req.httpMethod = "DELETE"
+        try await attachAuth(&req)
+        let (data, response) = try await session.data(for: req)
+        try checkStatus(response, data: data)
+    }
+
+    private func send<T: Decodable, B: Encodable>(_ path: String, method: String, body: B) async throws -> T {
+        var req = URLRequest(url: baseURL.appendingPathComponent(path))
+        req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try encoder.encode(body)
         try await attachAuth(&req)
