@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from bot.app.deps import get_task_service
 from bot.auth.dependencies import current_user
 from bot.schemas.errors import make as err
-from bot.schemas.task import TaskCreateText, TaskDetail, TaskList, TaskRef
+from bot.schemas.task import ChatRequest, ChatThread, TaskCreateText, TaskDetail, TaskList, TaskRef
 from bot.services.billing_service import OutOfQuota
 from bot.services.task_service import TaskService
 
@@ -87,3 +87,28 @@ async def list_tasks(
     tasks_service: TaskService = Depends(get_task_service),
 ):
     return await tasks_service.list(user.id, limit=limit, before=before, album_id=album_id, q=q)
+
+
+@router.get("/tasks/{task_id}/chat", response_model=ChatThread)
+async def get_chat(
+    task_id: str,
+    user=Depends(current_user),
+    tasks_service: TaskService = Depends(get_task_service),
+) -> ChatThread:
+    msgs = await tasks_service.chat_history(user.id, task_id)
+    if msgs is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
+    return ChatThread(messages=msgs)
+
+
+@router.post("/tasks/{task_id}/chat", response_model=ChatThread)
+async def post_chat(
+    task_id: str,
+    payload: ChatRequest,
+    user=Depends(current_user),
+    tasks_service: TaskService = Depends(get_task_service),
+) -> ChatThread:
+    msgs = await tasks_service.chat(user.id, task_id, payload.message)
+    if msgs is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
+    return ChatThread(messages=msgs)

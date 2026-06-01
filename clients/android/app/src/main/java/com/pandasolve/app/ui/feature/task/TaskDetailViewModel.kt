@@ -18,12 +18,16 @@ import timber.log.Timber
 
 data class ProblemUi(val problem: String, val steps: List<String>, val answer: String)
 
+data class ChatTurn(val fromMe: Boolean, val text: String)
+
 data class TaskUiState(
     val status: String = "pending",      // pending | done | failed
     val condition: String = "",
     val problems: List<ProblemUi> = emptyList(),
     val albums: List<AlbumOption> = emptyList(),
     val albumName: String? = null,
+    val chat: List<ChatTurn> = emptyList(),
+    val sending: Boolean = false,
     val live: Boolean = false,
 )
 
@@ -42,6 +46,10 @@ class TaskDetailViewModel @Inject constructor(
             runCatching {
                 albumRepo.list().map { AlbumOption(it.id, it.name, it.emoji ?: "📚") }
             }.onSuccess { opts -> _state.update { it.copy(albums = opts) } }
+
+            runCatching { taskRepo.chatHistory(taskId) }
+                .onSuccess { msgs -> _state.update { it.copy(chat = msgs.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }) } }
+                .onFailure { Timber.w(it, "chat history load failed") }
 
             repeat(30) { // poll up to ~60s while pending
                 val ok = runCatching {
@@ -85,6 +93,18 @@ class TaskDetailViewModel @Inject constructor(
             runCatching { albumRepo.assign(taskId, album?.id) }
                 .onSuccess { _state.update { it.copy(albumName = album?.name) } }
                 .onFailure { Timber.w(it, "assign album failed") }
+        }
+    }
+
+    fun sendChat(taskId: String, message: String) {
+        if (taskId.isBlank() || message.isBlank() || _state.value.sending) return
+        viewModelScope.launch {
+            _state.update { it.copy(sending = true) }
+            runCatching { taskRepo.sendChat(taskId, message.trim()) }
+                .onSuccess { msgs ->
+                    _state.update { it.copy(chat = msgs.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, sending = false) }
+                }
+                .onFailure { Timber.w(it, "send chat failed"); _state.update { it.copy(sending = false) } }
         }
     }
 }

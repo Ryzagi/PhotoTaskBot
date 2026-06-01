@@ -48,6 +48,20 @@ class TaskDetail(BaseModel):
     completed_at: datetime | None = None
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class ChatThread(BaseModel):
+    messages: list[ChatMessage]
+
+
 class TaskListItem(BaseModel):
     id: str
     status: Literal["pending", "done", "failed"]

@@ -129,6 +129,47 @@ class TaskService:
             completed_at=row.get("completed_at"),
         )
 
+    async def _owned_task(self, user_id: str, task_id: str) -> dict | None:
+        row = await self.db.get_task(task_id)
+        if row is None or row.get("user_id") != user_id:
+            return None
+        return row
+
+    async def chat_history(self, user_id: str, task_id: str) -> list[dict] | None:
+        if await self._owned_task(user_id, task_id) is None:
+            return None
+        return await self.db.list_messages(task_id)
+
+    async def chat(self, user_id: str, task_id: str, message: str) -> list[dict] | None:
+        """Follow-up Q&A: store the question, answer it with the task as context, store the reply."""
+        task = await self._owned_task(user_id, task_id)
+        if task is None:
+            return None
+
+        solution = task.get("solution") or {}
+        sols = solution.get("solutions") or []
+        problem = sols[0].get("problem", "") if sols else (task.get("input_text") or "")
+        parts: list[str] = []
+        for p in sols:
+            for blk in (p.get("steps") or []):
+                parts.append(blk.get("content", ""))
+            for blk in (p.get("solution") or []):
+                parts.append(blk.get("content", ""))
+        solution_text = "\n".join(parts)
+
+        history = await self.db.list_messages(task_id)
+        await self.db.insert_message(task_id, user_id, "user", message)
+        try:
+            reply = await self.gpt.generate_chat_reply(
+                problem, solution_text,
+                [{"role": m["role"], "content": m["content"]} for m in history],
+                message,
+            )
+        except Exception:
+            reply = "Не удалось ответить — попробуй переформулировать вопрос чуть позже 🐼"
+        await self.db.insert_message(task_id, user_id, "assistant", reply)
+        return await self.db.list_messages(task_id)
+
     async def list(self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None, q: str | None = None) -> TaskList:
         rows = await self.db.list_tasks(user_id, limit=limit, before=before, album_id=album_id, q=q)
         items = []

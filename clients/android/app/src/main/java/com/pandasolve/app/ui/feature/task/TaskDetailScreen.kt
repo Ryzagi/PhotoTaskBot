@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -19,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +47,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
     LaunchedEffect(taskId) { viewModel.load(taskId) }
     val first = s.problems.firstOrNull()
     var showPicker by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -113,10 +117,20 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             Spacer(Modifier.height(22.dp))
             SectionLabel("💬 спроси панду", c.lavDeep, c.lavSoft)
             Spacer(Modifier.height(12.dp))
-            Text(
-                "Задай уточняющий вопрос по решению ниже 🐼",
-                fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
-            )
+            if (s.chat.isEmpty()) {
+                Text(
+                    "Задай уточняющий вопрос по решению выше 🐼",
+                    fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    s.chat.forEach { turn -> Bubble(turn.text, me = turn.fromMe) }
+                }
+            }
+            if (s.sending) {
+                Spacer(Modifier.height(10.dp))
+                Text("панда печатает…", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.lavDeep)
+            }
         }
 
         // chat bar
@@ -126,9 +140,25 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 .padding(start = 18.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("спросить ещё…", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint, modifier = Modifier.weight(1f))
-            Box(Modifier.size(40.dp).clip(CircleShape).background(Brush.linearGradient(listOf(c.coral, c.pink))), contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(17.dp))
+            BasicTextField(
+                value = draft, onValueChange = { draft = it }, singleLine = true,
+                cursorBrush = SolidColor(c.coralDeep),
+                textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.ink),
+                modifier = Modifier.weight(1f),
+                decorationBox = { inner ->
+                    if (draft.isEmpty()) Text("спросить ещё…", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
+                    inner()
+                },
+            )
+            Spacer(Modifier.width(8.dp))
+            val canSend = draft.isNotBlank() && !s.sending
+            Box(
+                Modifier.size(40.dp).clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(c.coral, c.pink)))
+                    .clickable(enabled = canSend) { viewModel.sendChat(taskId, draft); draft = "" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White.copy(alpha = if (canSend) 1f else 0.5f), modifier = Modifier.size(17.dp))
             }
         }
     }

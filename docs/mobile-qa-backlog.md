@@ -177,9 +177,19 @@ the end. Items mix backend + client.
   (fallback to `input_text`/"(фото)" when absent for old rows). Client shows `title` in
   list rows and Task detail header. **Foundation for R2-3 (search).**
 
-## R2-2. Chat on a solution ("спросить ещё") — not working
-- **type:** feature · **area:** new `POST /v1/tasks/{id}/chat` + a `task_messages` table;
-  `gpt_service`/`gemini_service`; client `TaskDetailScreen` chat bar + a `ChatViewModel`.
+## R2-2. Chat on a solution ("спросить ещё") — DONE (needs migration 0005 + redeploy; re-test)
+- **Resolution (backend):** migration `0005_task_messages.sql` (`task_messages(task_id, user_id,
+  role, content, created_at)`); `GET`/`POST /v1/tasks/{id}/chat` (`ChatThread`/`ChatRequest`);
+  `TaskService.chat`/`chat_history` build context from the task's problem+solution+prior turns and
+  call `TaskSolverGPT.generate_chat_reply` (plain-text `responses.create`, no structured format),
+  storing both turns. GPT-only for now (graceful fallback message on error). openapi 13 paths;
+  37 tests + ruff green.
+- **Resolution (client):** `ChatMessage`/`ChatThread`/`ChatSendRequest` models; `getChat`/`postChat`
+  in the API + `TaskRepository.chatHistory`/`sendChat`; `TaskDetailViewModel` loads the thread and
+  `sendChat` (with a `sending` flag); `TaskDetailScreen` renders the thread (`Bubble`s, LaTeX→Unicode)
+  and the "спросить ещё" bar is now a live `BasicTextField` + send button ("панда печатает…" while sending).
+- **Deploy:** apply `0005` + redeploy. **Future:** Gemini fallback for chat; streaming.
+- **type:** feature · **area:** `bot/{migrations/0005,schemas/task,gpt_service,supabase_service,services/task_service,api/v1/tasks}`, client models/api/repo + TaskDetail VM/screen.
 - **Symptom:** the "спросить ещё…" bar is inert (we removed the fake bubbles in #3; never wired).
 - **Approach:** persist a per-task message thread (`task_messages(id, task_id, role, content,
   created_at)`); endpoint takes a question, calls the LLM with the original problem + solution +
@@ -248,9 +258,10 @@ the end. Items mix backend + client.
   Bottom bar left tab is now **Home** (`CuteTab.Home`, "Главная"/"Home", 🏠). **Deleted**
   `ArchiveScreen`/`HistoryViewModel`/`AlbumsScreen`/`AlbumsViewModel` + the ARCHIVE/ALBUMS routes.
   Added client `updateAlbum` (PATCH) plumbing. Build green.
-- **Known minor:** day labels (сегодня/вчера/ранее) are still RU-only (computed in the VM, which
-  has no `LocalStrings`); `sampleThreads`/`sampleAlbums`/`toSampleAlbum` are now dead code. Long
-  list uses `verticalScroll` (switch to `LazyColumn` if it gets janky).
+- **Known minors — FIXED:** day labels now localized (`dayToday/dayYesterday/dayEarlier` in
+  `Strings`; `DayBucket` dropped `tape`, label chosen by index in the screen); removed dead
+  `sampleThreads`/`sampleAlbums`/`SampleAlbum`/`toSampleAlbum`; Home list converted to `LazyColumn`
+  (header is one item, each day group an item).
 - **type:** refactor/feature · **area:** `ui/feature/home/*`, deleted history/albums, `Navigation.kt`, `CuteComponents`, `AlbumDialogs.kt`.
 - **Ask:** Home and Archive (designs 2 & 5) are duplicative. Combine into one Home that has:
   the **search bar** (from Archive, R2-3), tasks **grouped by day** (today/yesterday/earlier),

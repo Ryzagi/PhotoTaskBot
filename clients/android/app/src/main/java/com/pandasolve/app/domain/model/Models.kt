@@ -117,3 +117,16 @@ data class TaskList(
 
 @Serializable
 data class TopupUrl(val url: String)
+
+@Serializable
+data class ChatMessage(
+    val role: String,                               // "user" | "assistant"
+    val content: String,
+    @SerialName("created_at") val createdAt: String,
+)
+
+@Serializable
+data class ChatThread(val messages: List<ChatMessage>)
+
+@Serializable
+data class ChatSendRequest(val message: String)

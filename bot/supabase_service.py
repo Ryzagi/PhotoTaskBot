@@ -715,6 +715,31 @@ class SupabaseService:
         )
         return bool(resp.data)
 
+    # ─── Task chat (R2-2) ───
+
+    async def insert_message(self, task_id: str, user_id: str, role: str, content: str) -> None:
+        self._ensure_session()
+        self.supabase_client.table("task_messages").insert({
+            "task_id": int(task_id),
+            "user_id": user_id,
+            "role": role,
+            "content": content,
+        }).execute()
+
+    async def list_messages(self, task_id: str) -> list[dict]:
+        self._ensure_session()
+        resp = (
+            self.supabase_client.table("task_messages")
+            .select("role, content, created_at")
+            .eq("task_id", task_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        rows = resp.data or []
+        for r in rows:
+            r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
+        return rows
+
     # ─── Storage ───
 
     async def upload_image(self, path: str, content: bytes) -> None:

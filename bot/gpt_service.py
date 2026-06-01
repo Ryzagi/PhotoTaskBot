@@ -150,3 +150,25 @@ class TaskSolverGPT:
         print("GPT TEXT result:", output_text)
         parsed_result = self.parse_output_json(output_text)
         return parsed_result
+
+    async def generate_chat_reply(
+        self, problem: str, solution_text: str, history: list[dict], question: str,
+    ) -> str:
+        """Follow-up Q&A about an already-solved task. Plain text, in the question's language."""
+        system = (
+            "Ты — дружелюбный преподаватель. Кратко и по делу отвечай на уточняющие вопросы "
+            "по уже решённой задаче. Отвечай на языке вопроса. Математику оформляй в $...$."
+        )
+        convo: list[dict] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Задача:\n{problem}\n\nРешение:\n{solution_text}"},
+        ]
+        for m in history:
+            convo.append({"role": m["role"], "content": m["content"]})
+        convo.append({"role": "user", "content": question})
+        response = await self.client.responses.create(
+            model=GPT_MODEL,
+            input=convo,
+            reasoning={"effort": "minimal"},
+        )
+        return response.output_text

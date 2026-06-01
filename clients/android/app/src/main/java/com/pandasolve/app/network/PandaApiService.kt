@@ -5,6 +5,8 @@ import com.pandasolve.app.domain.model.AlbumCreateRequest
 import com.pandasolve.app.domain.model.AlbumListResponse
 import com.pandasolve.app.domain.model.AlbumUpdateRequest
 import com.pandasolve.app.domain.model.AssignAlbumRequest
+import com.pandasolve.app.domain.model.ChatSendRequest
+import com.pandasolve.app.domain.model.ChatThread
 import com.pandasolve.app.domain.model.LinkStartResponse
 import com.pandasolve.app.domain.model.Me
 import com.pandasolve.app.domain.model.RegisterDeviceRequest
@@ -62,6 +64,12 @@ interface PandaApiService {
 
     @GET("/v1/tasks/{task_id}")
     suspend fun getTask(@Path("task_id") taskId: String): TaskDetail
+
+    @GET("/v1/tasks/{task_id}/chat")
+    suspend fun getChat(@Path("task_id") taskId: String): ChatThread
+
+    @POST("/v1/tasks/{task_id}/chat")
+    suspend fun postChat(@Path("task_id") taskId: String, @Body body: ChatSendRequest): ChatThread
 
     @GET("/v1/tasks")
     suspend fun listTasks(
