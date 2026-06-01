@@ -29,6 +29,6 @@ class TaskRepository @Inject constructor(
 
     suspend fun get(id: String): TaskDetail = api.getTask(id)
 
-    suspend fun list(limit: Int, before: String?): TaskList =
-        api.listTasks(limit = limit, before = before)
+    suspend fun list(limit: Int, before: String?, albumId: String? = null, q: String? = null): TaskList =
+        api.listTasks(limit = limit, before = before, albumId = albumId, q = q?.ifBlank { null })
 }

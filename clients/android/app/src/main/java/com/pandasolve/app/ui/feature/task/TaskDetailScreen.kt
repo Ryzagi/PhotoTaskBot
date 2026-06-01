@@ -28,8 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pandasolve.app.ui.component.AlbumOption
+import com.pandasolve.app.ui.component.AlbumPickerDialog
 import com.pandasolve.app.ui.component.Panda
 import com.pandasolve.app.ui.component.dotPaper
 import com.pandasolve.app.ui.theme.Baloo
@@ -138,48 +139,6 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             onDismiss = { showPicker = false },
             onPick = { album -> viewModel.assignAlbum(taskId, album); showPicker = false },
         )
-    }
-}
-
-@Composable
-private fun AlbumPickerDialog(
-    albums: List<AlbumOption>,
-    onDismiss: () -> Unit,
-    onPick: (AlbumOption?) -> Unit,
-) {
-    val c = cute
-    Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(c.paper).padding(20.dp)) {
-            Text("В какой альбом? 🗂️", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 20.sp, color = c.ink)
-            Spacer(Modifier.height(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                albums.forEach { a ->
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.card)
-                            .border(2.dp, c.line, RoundedCornerShape(16.dp))
-                            .clickable { onPick(a) }.padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(a.emoji, fontSize = 18.sp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(a.name, fontFamily = Baloo, fontWeight = FontWeight.W600, fontSize = 15.sp, color = c.ink)
-                    }
-                }
-                if (albums.isEmpty()) {
-                    Text("Пока нет альбомов — создай их на вкладке «Альбомы».",
-                        fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = c.inkFaint)
-                }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                        .clickable { onPick(null) }.padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("✕", fontSize = 16.sp, color = c.coralDeep)
-                    Spacer(Modifier.width(12.dp))
-                    Text("Без альбома", fontFamily = Baloo, fontWeight = FontWeight.W600, fontSize = 15.sp, color = c.coralDeep)
-                }
-            }
-        }
     }
 }
 

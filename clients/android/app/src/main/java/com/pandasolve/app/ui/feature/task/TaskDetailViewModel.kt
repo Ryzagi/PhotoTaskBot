@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.TaskRepository
 import com.pandasolve.app.latex.latexToUnicode
+import com.pandasolve.app.ui.component.AlbumOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -16,8 +17,6 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 data class ProblemUi(val problem: String, val steps: List<String>, val answer: String)
-
-data class AlbumOption(val id: String, val name: String, val emoji: String)
 
 data class TaskUiState(
     val status: String = "pending",      // pending | done | failed

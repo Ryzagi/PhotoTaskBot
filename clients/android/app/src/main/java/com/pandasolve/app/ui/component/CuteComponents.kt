@@ -142,13 +142,13 @@ fun ShutterButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-enum class CuteTab { Archive, Profile, None }
+enum class CuteTab { Home, Profile, None }
 
-/** Bottom navigation: archive · raised shutter · profile. */
+/** Bottom navigation: home · raised shutter · profile. */
 @Composable
 fun CuteBottomBar(
     active: CuteTab,
-    onArchive: () -> Unit,
+    onHome: () -> Unit,
     onCamera: () -> Unit,
     onProfile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -169,9 +169,8 @@ fun CuteBottomBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
-            NavSide(t.navArchive, active == CuteTab.Archive, c.mintDeep, c.mintSoft, c.inkFaint, onArchive) {
-                // folder-ish glyph
-                Text("🗂", fontSize = 20.sp)
+            NavSide(t.navHome, active == CuteTab.Home, c.mintDeep, c.mintSoft, c.inkFaint, onHome) {
+                Text("🏠", fontSize = 20.sp)
             }
             Spacer(Modifier.width(78.dp))
             NavSideAvatar(t.navProfile, active == CuteTab.Profile, c.mintDeep, c.mintSoft, c.inkFaint, onProfile)

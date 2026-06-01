@@ -1,8 +1,9 @@
 package com.pandasolve.app.ui.component
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -20,8 +21,9 @@ import com.pandasolve.app.ui.theme.Baloo
 import com.pandasolve.app.ui.theme.Nunito
 import com.pandasolve.app.ui.theme.cute
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ThreadCard(t: SampleThread, onClick: () -> Unit) {
+fun ThreadCard(t: SampleThread, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     val c = cute
     Row(
         Modifier
@@ -29,7 +31,7 @@ fun ThreadCard(t: SampleThread, onClick: () -> Unit) {
             .clip(RoundedCornerShape(20.dp))
             .background(c.card)
             .border(2.dp, c.line, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

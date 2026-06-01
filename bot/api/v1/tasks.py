@@ -82,7 +82,8 @@ async def list_tasks(
     limit: int = Query(default=20, ge=1, le=50),
     before: datetime | None = Query(default=None),
     album_id: UUID | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=200),
     user=Depends(current_user),
     tasks_service: TaskService = Depends(get_task_service),
 ):
-    return await tasks_service.list(user.id, limit=limit, before=before, album_id=album_id)
+    return await tasks_service.list(user.id, limit=limit, before=before, album_id=album_id, q=q)

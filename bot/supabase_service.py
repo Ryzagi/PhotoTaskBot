@@ -586,10 +586,11 @@ class SupabaseService:
         }).eq("id", task_id).execute()
 
     async def list_tasks(
-        self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None
+        self, user_id: str, limit: int, before: datetime | None,
+        album_id: str | None = None, q: str | None = None,
     ) -> list[dict]:
         self._ensure_session()
-        q = (
+        query = (
             self.supabase_client.table(self._task_table)
             .select("id, status, input_kind, input_text, title, thumbnail_path, file_path, created_at")
             .eq("user_id", user_id)
@@ -597,10 +598,15 @@ class SupabaseService:
             .limit(limit)
         )
         if album_id:
-            q = q.eq("album_id", album_id)
+            query = query.eq("album_id", album_id)
+        if q:
+            # case-insensitive match on title OR input_text; strip PostgREST-special chars
+            term = q.strip().replace("%", "").replace(",", " ").replace("*", "")
+            if term:
+                query = query.or_(f"title.ilike.%{term}%,input_text.ilike.%{term}%")
         if before:
-            q = q.lt("created_at", before.isoformat())
-        resp = q.execute()
+            query = query.lt("created_at", before.isoformat())
+        resp = query.execute()
         rows = resp.data or []
         for r in rows:
             r["id"] = str(r["id"])

@@ -129,8 +129,8 @@ class TaskService:
             completed_at=row.get("completed_at"),
         )
 
-    async def list(self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None) -> TaskList:
-        rows = await self.db.list_tasks(user_id, limit=limit, before=before, album_id=album_id)
+    async def list(self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None, q: str | None = None) -> TaskList:
+        rows = await self.db.list_tasks(user_id, limit=limit, before=before, album_id=album_id, q=q)
         items = []
         next_before = None
         for row in rows:

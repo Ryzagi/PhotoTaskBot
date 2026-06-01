@@ -39,7 +39,7 @@ import com.pandasolve.app.ui.theme.cute
 
 @Composable
 fun ProfileScreen(
-    onArchive: () -> Unit,
+    onHome: () -> Unit,
     onCamera: () -> Unit,
     onSignOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -115,7 +115,7 @@ fun ProfileScreen(
             }
         }
 
-        CuteBottomBar(CuteTab.Profile, onArchive = onArchive, onCamera = onCamera, onProfile = {}, modifier = Modifier.align(Alignment.BottomCenter))
+        CuteBottomBar(CuteTab.Profile, onHome = onHome, onCamera = onCamera, onProfile = {}, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 

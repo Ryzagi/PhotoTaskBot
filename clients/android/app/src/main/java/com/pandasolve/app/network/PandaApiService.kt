@@ -3,6 +3,7 @@ package com.pandasolve.app.network
 import com.pandasolve.app.domain.model.Album
 import com.pandasolve.app.domain.model.AlbumCreateRequest
 import com.pandasolve.app.domain.model.AlbumListResponse
+import com.pandasolve.app.domain.model.AlbumUpdateRequest
 import com.pandasolve.app.domain.model.AssignAlbumRequest
 import com.pandasolve.app.domain.model.LinkStartResponse
 import com.pandasolve.app.domain.model.Me
@@ -20,6 +21,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
@@ -65,6 +67,8 @@ interface PandaApiService {
     suspend fun listTasks(
         @Query("limit") limit: Int = 20,
         @Query("before") before: String? = null,
+        @Query("album_id") albumId: String? = null,
+        @Query("q") q: String? = null,
     ): TaskList
 
     @GET("/v1/topup/url")
@@ -75,6 +79,9 @@ interface PandaApiService {
 
     @POST("/v1/albums")
     suspend fun createAlbum(@Body body: AlbumCreateRequest): Album
+
+    @PATCH("/v1/albums/{id}")
+    suspend fun updateAlbum(@Path("id") id: String, @Body body: AlbumUpdateRequest): Album
 
     @DELETE("/v1/albums/{id}")
     suspend fun deleteAlbum(@Path("id") id: String)

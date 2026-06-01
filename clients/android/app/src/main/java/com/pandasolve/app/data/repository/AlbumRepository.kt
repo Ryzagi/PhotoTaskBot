@@ -2,6 +2,7 @@ package com.pandasolve.app.data.repository
 
 import com.pandasolve.app.domain.model.Album
 import com.pandasolve.app.domain.model.AlbumCreateRequest
+import com.pandasolve.app.domain.model.AlbumUpdateRequest
 import com.pandasolve.app.domain.model.AssignAlbumRequest
 import com.pandasolve.app.network.PandaApiService
 import javax.inject.Inject
@@ -15,6 +16,9 @@ class AlbumRepository @Inject constructor(
 
     suspend fun create(name: String, emoji: String?, color: String?): Album =
         api.createAlbum(AlbumCreateRequest(name = name, emoji = emoji, color = color))
+
+    suspend fun update(id: String, name: String?, emoji: String?, color: String?): Album =
+        api.updateAlbum(id, AlbumUpdateRequest(name = name, emoji = emoji, color = color))
 
     suspend fun delete(id: String) = api.deleteAlbum(id)
 

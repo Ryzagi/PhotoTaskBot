@@ -56,6 +56,9 @@ data class AlbumListResponse(val items: List<Album>)
 data class AlbumCreateRequest(val name: String, val emoji: String? = null, val color: String? = null)
 
 @Serializable
+data class AlbumUpdateRequest(val name: String? = null, val emoji: String? = null, val color: String? = null)
+
+@Serializable
 data class AssignAlbumRequest(@SerialName("album_id") val albumId: String? = null)
 
 @Serializable

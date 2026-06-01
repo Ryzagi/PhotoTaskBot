@@ -186,7 +186,11 @@ the end. Items mix backend + client.
   prior turns as context, stores both turns, returns the reply. Client renders the thread and
   sends. Costs a solve-credit? — decide (probably free or cheaper). Streaming optional.
 
-## R2-3. Search tab over completed tasks  (depends on R2-1)
+## R2-3. Search over completed tasks — DONE (with R2-7; needs backend redeploy)
+- **Resolution:** added `q` query param to `GET /v1/tasks` (ILIKE on `title`/`input_text`,
+  PostgREST `.or_`, special chars stripped) → `TaskService.list` → `SupabaseService.list_tasks`.
+  Client: `listTasks`/`TaskRepository.list` gain `q`; the merged Home has a search field with a
+  300ms debounce in `HomeViewModel.onQueryChange`. Needs backend redeploy for `q` to work.
 - **type:** feature · **area:** `GET /v1/tasks?q=` (ILIKE on `title`/`input_text`), client search UI.
 - **Approach:** add a `q` query param to the task list endpoint; case-insensitive match on
   title + input_text (+ maybe solution text). Client: a search field (folded into the merged
@@ -222,7 +226,11 @@ the end. Items mix backend + client.
   `TaskDetailViewModel.load()` populate `albumName` from it. A join table is only needed if we
   want **multiple** albums per task — not required for current one-album design.
 
-## R2-6. Long-press to assign album from the list; filter shows only that album
+## R2-6. Long-press assign + album filter — DONE (with R2-7)
+- **Resolution:** `ThreadCard` gained `onLongClick` (`combinedClickable`); long-press a task on
+  Home opens `AlbumPickerDialog` → `HomeViewModel.assignAlbum` (persists via `tasks.album_id`).
+  Album chips drive `setAlbumFilter(id)` → `?album_id=` (backend route already supported it);
+  "📚 все" clears the filter. Client-only (backend filter pre-existed).
 - **type:** feature · **area:** client list (merged Home per R2-7); backend filter already exists.
 - **Symptom/ask:** long-tap a task in the main list → assign-album sheet; default = all tasks;
   selecting an album filters to only its tasks.
@@ -230,9 +238,20 @@ the end. Items mix backend + client.
   mostly client UX: a long-press `combinedClickable` → album picker (reuse `AlbumPickerDialog`),
   and album filter chips driving the `album_id` param. Pairs with R2-7.
 
-## R2-7. Merge Home + Archive into one screen  (LARGE — do last)
-- **type:** refactor/feature · **area:** `ui/feature/home/*`, `ui/feature/history/*`, `Navigation.kt`,
-  `CuteComponents` bottom bar.
+## R2-7. Merge Home + Archive into one screen — DONE (needs backend redeploy for search; re-test)
+- **Resolution:** one Home now carries greeting/streak, balance, **album filter chips + ＋
+  create pill**, **search field**, and a **day-grouped task list** (today/вчера/ранее).
+  `HomeViewModel` absorbed `HistoryViewModel` (grouping) + filter/search/assign/create/edit/delete.
+  Tap a card = open; **long-press = assign album**. Album chips filter; **long-press a chip =
+  edit/delete** via a shared `AlbumEditorDialog` (create+edit+delete); `＋` = create. Extracted
+  `AlbumPickerDialog` + `AlbumEditorDialog` + `AlbumOption` into `ui/component/AlbumDialogs.kt`.
+  Bottom bar left tab is now **Home** (`CuteTab.Home`, "Главная"/"Home", 🏠). **Deleted**
+  `ArchiveScreen`/`HistoryViewModel`/`AlbumsScreen`/`AlbumsViewModel` + the ARCHIVE/ALBUMS routes.
+  Added client `updateAlbum` (PATCH) plumbing. Build green.
+- **Known minor:** day labels (сегодня/вчера/ранее) are still RU-only (computed in the VM, which
+  has no `LocalStrings`); `sampleThreads`/`sampleAlbums`/`toSampleAlbum` are now dead code. Long
+  list uses `verticalScroll` (switch to `LazyColumn` if it gets janky).
+- **type:** refactor/feature · **area:** `ui/feature/home/*`, deleted history/albums, `Navigation.kt`, `CuteComponents`, `AlbumDialogs.kt`.
 - **Ask:** Home and Archive (designs 2 & 5) are duplicative. Combine into one Home that has:
   the **search bar** (from Archive, R2-3), tasks **grouped by day** (today/yesterday/earlier),
   the **album row with a trailing "＋" pill** to create an album inline, and **long-press a task

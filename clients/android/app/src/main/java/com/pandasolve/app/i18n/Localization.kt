@@ -11,7 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
  */
 data class Strings(
     // nav
-    val navArchive: String,
+    val navHome: String,
     val navProfile: String,
     // home
     val welcomeBack: String,
@@ -21,6 +21,11 @@ data class Strings(
     val recent: String,
     val all: String,
     val daysShort: String,
+    val searchHint: String,
+    val noTasks: String,
+    val dayToday: String,
+    val dayYesterday: String,
+    val dayEarlier: String,
     // profile
     val profileTitle: String,
     val linkedTag: String,
@@ -43,15 +48,20 @@ data class Strings(
 )
 
 val RuStrings = Strings(
-    navArchive = "архив",
+    navHome = "главная",
     navProfile = "профиль",
     welcomeBack = "с возвращением,",
     bambooToday = "БАМБУК НА СЕГОДНЯ",
     solutions = "решения",
     donate = "донат",
-    recent = "Недавние беседы",
+    recent = "Решения",
     all = "все →",
     daysShort = "дн.",
+    searchHint = "поиск по решениям…",
+    noTasks = "Пока нет решений — реши первую задачу 🐼",
+    dayToday = "сегодня",
+    dayYesterday = "вчера",
+    dayEarlier = "ранее",
     profileTitle = "Профиль",
     linkedTag = "тг ✓",
     statStreak = "дней стрик",
@@ -73,15 +83,20 @@ val RuStrings = Strings(
 )
 
 val EnStrings = Strings(
-    navArchive = "archive",
+    navHome = "home",
     navProfile = "profile",
     welcomeBack = "welcome back,",
     bambooToday = "BAMBOO FOR TODAY",
     solutions = "solutions",
     donate = "donate",
-    recent = "Recent threads",
+    recent = "Solutions",
     all = "all →",
     daysShort = "d.",
+    searchHint = "search solutions…",
+    noTasks = "No solutions yet — solve your first one 🐼",
+    dayToday = "today",
+    dayYesterday = "yesterday",
+    dayEarlier = "earlier",
     profileTitle = "Profile",
     linkedTag = "tg ✓",
     statStreak = "day streak",

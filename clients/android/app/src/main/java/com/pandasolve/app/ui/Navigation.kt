@@ -21,9 +21,7 @@ import androidx.navigation.navDeepLink
 import com.pandasolve.app.auth.AuthState
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.stringsFor
-import com.pandasolve.app.ui.feature.albums.AlbumsScreen
 import com.pandasolve.app.ui.feature.auth.SignInScreen
-import com.pandasolve.app.ui.feature.history.ArchiveScreen
 import com.pandasolve.app.ui.feature.home.HomeScreen
 import com.pandasolve.app.ui.feature.settings.ProfileScreen
 import com.pandasolve.app.ui.feature.solve.CameraScreen
@@ -34,8 +32,6 @@ object Routes {
     const val SIGN_IN = "sign_in"
     const val HOME = "home"
     const val CAMERA = "camera"
-    const val ARCHIVE = "archive"
-    const val ALBUMS = "albums"
     const val PROFILE = "profile"
     const val TASK = "task/{id}"
     fun task(id: String) = "task/$id"
@@ -85,10 +81,8 @@ fun AppNavigation(root: RootViewModel = hiltViewModel()) {
         composable(Routes.HOME) {
             HomeScreen(
                 onCamera = { nav.navigate(Routes.CAMERA) },
-                onArchive = { goTab(Routes.ARCHIVE) },
                 onProfile = { goTab(Routes.PROFILE) },
                 onTask = { id -> nav.navigate(Routes.task(id)) },
-                onAlbums = { goTab(Routes.ALBUMS) },
             )
         }
         composable(Routes.CAMERA) {
@@ -99,24 +93,9 @@ fun AppNavigation(root: RootViewModel = hiltViewModel()) {
                 },
             )
         }
-        composable(Routes.ARCHIVE) {
-            ArchiveScreen(
-                onTask = { id -> nav.navigate(Routes.task(id)) },
-                onCamera = { nav.navigate(Routes.CAMERA) },
-                onProfile = { goTab(Routes.PROFILE) },
-                onAlbums = { goTab(Routes.ALBUMS) },
-            )
-        }
-        composable(Routes.ALBUMS) {
-            AlbumsScreen(
-                onArchive = { goTab(Routes.ARCHIVE) },
-                onCamera = { nav.navigate(Routes.CAMERA) },
-                onProfile = { goTab(Routes.PROFILE) },
-            )
-        }
         composable(Routes.PROFILE) {
             ProfileScreen(
-                onArchive = { goTab(Routes.ARCHIVE) },
+                onHome = { goTab(Routes.HOME) },
                 onCamera = { nav.navigate(Routes.CAMERA) },
                 onSignOut = { nav.navigate(Routes.SIGN_IN) { popUpTo(Routes.HOME) { inclusive = true } } },
             )
