@@ -8,6 +8,7 @@ final class AppEnvironment {
     let api: APIClient
     let userRepo: UserRepository
     let taskRepo: TaskRepository
+    let albumRepo: AlbumRepository
     let deviceRepo: DeviceRepository
 
     private init(
@@ -15,12 +16,14 @@ final class AppEnvironment {
         api: APIClient,
         userRepo: UserRepository,
         taskRepo: TaskRepository,
+        albumRepo: AlbumRepository,
         deviceRepo: DeviceRepository
     ) {
         self.auth = auth
         self.api = api
         self.userRepo = userRepo
         self.taskRepo = taskRepo
+        self.albumRepo = albumRepo
         self.deviceRepo = deviceRepo
     }
 
@@ -32,6 +35,7 @@ final class AppEnvironment {
             api: api,
             userRepo: UserRepository(api: api),
             taskRepo: TaskRepository(api: api),
+            albumRepo: AlbumRepository(api: api),
             deviceRepo: DeviceRepository(api: api)
         )
     }()
