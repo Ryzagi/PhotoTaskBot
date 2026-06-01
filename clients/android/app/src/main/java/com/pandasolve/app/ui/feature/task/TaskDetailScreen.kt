@@ -81,7 +81,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             ) {
                 Box(Modifier.size(9.dp).clip(RoundedCornerShape(3.dp)).background(c.mint))
                 Spacer(Modifier.width(8.dp))
-                Text("${s.albumName ?: "выбрать альбом"}  ⌄", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.lavDeep)
+                Text("${s.albumName ?: "выбрать папку"}  ⌄", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.lavDeep)
             }
 
             Spacer(Modifier.height(13.dp))
