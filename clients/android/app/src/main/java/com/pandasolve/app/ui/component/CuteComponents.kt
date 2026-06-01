@@ -159,14 +159,14 @@ fun CuteBottomBar(
         modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .height(84.dp)
+            .height(92.dp)
             .background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to c.paper, 1f to c.paper)),
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(start = 38.dp, end = 38.dp, bottom = 22.dp),
+                .padding(start = 38.dp, end = 38.dp, bottom = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
@@ -201,7 +201,7 @@ private fun NavSide(
             contentAlignment = Alignment.Center,
         ) { icon() }
         Spacer(Modifier.height(3.dp))
-        Text(label.uppercase(), color = color, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp)
+        Text(label.uppercase(), color = color, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, maxLines = 1, softWrap = false)
     }
 }
 
@@ -224,6 +224,6 @@ private fun NavSideAvatar(
             Panda(Modifier.size(30.dp).clip(CircleShape).background(Color.White))
         }
         Spacer(Modifier.height(3.dp))
-        Text(label.uppercase(), color = color, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp)
+        Text(label.uppercase(), color = color, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, maxLines = 1, softWrap = false)
     }
 }

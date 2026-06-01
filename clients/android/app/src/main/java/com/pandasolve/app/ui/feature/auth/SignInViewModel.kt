@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.pandasolve.app.auth.SupabaseAuth
 import com.pandasolve.app.data.repository.DeviceRepository
+import com.pandasolve.app.i18n.LanguageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -28,10 +29,14 @@ class SignInViewModel @Inject constructor(
     @ApplicationContext private val ctx: Context,
     private val auth: SupabaseAuth,
     private val devices: DeviceRepository,
+    private val languageManager: LanguageManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SignInState(signedIn = auth.isSignedIn()))
     val state: StateFlow<SignInState> = _state.asStateFlow()
+
+    /** Pick the UI language before signing in (drives LocalStrings app-wide). */
+    fun setLanguage(code: String) = languageManager.set(code)
 
     init {
         // If already signed in (cold start), opportunistically register the FCM token.
@@ -39,7 +44,7 @@ class SignInViewModel @Inject constructor(
     }
 
     fun signInWithEmail(email: String, password: String) = launchSignIn {
-        if (email.isBlank() || password.isBlank()) error("Заполните email и пароль")
+        if (email.isBlank() || password.isBlank()) error("Заполни почту и пароль")
         auth.signInWithEmail(email, password)
     }
 

@@ -74,6 +74,15 @@ data class Strings(
     // profile extras
     val notifications: String,
     val notificationsHint: String,
+    // sign-in
+    val signinGreeting: String,
+    val signinTitle: String,
+    val signinSubtitle: String,
+    val fieldEmail: String,
+    val fieldPassword: String,
+    val signinButton: String,
+    val orDivider: String,
+    val signinTerms: String,
 )
 
 val RuStrings = Strings(
@@ -134,6 +143,14 @@ val RuStrings = Strings(
     chatTopUp = "Пополнить",
     notifications = "Уведомления",
     notificationsHint = "решения и ответы",
+    signinGreeting = "Приве-е-ет! ✿",
+    signinTitle = "Давай решать\nвместе",
+    signinSubtitle = "Сфоткай задачу — я объясню по шагам.",
+    fieldEmail = "почта",
+    fieldPassword = "пароль",
+    signinButton = "Войти 🚀",
+    orDivider = "ИЛИ",
+    signinTerms = "Войдя, ты соглашаешься с правилами и конфиденциальностью.",
 )
 
 val EnStrings = Strings(
@@ -194,6 +211,14 @@ val EnStrings = Strings(
     chatTopUp = "Top up",
     notifications = "Notifications",
     notificationsHint = "solutions and replies",
+    signinGreeting = "Hi there! ✿",
+    signinTitle = "Let's solve\ntogether",
+    signinSubtitle = "Snap a problem — I'll explain step by step.",
+    fieldEmail = "email",
+    fieldPassword = "password",
+    signinButton = "Sign in 🚀",
+    orDivider = "OR",
+    signinTerms = "By signing in you agree to the terms and privacy policy.",
 )
 
 /** Map a backend `language_code` (e.g. "ru", "en", "en-US") to a string table. */

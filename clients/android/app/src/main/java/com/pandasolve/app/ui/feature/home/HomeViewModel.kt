@@ -49,9 +49,23 @@ class HomeViewModel @Inject constructor(
     private val auth: SupabaseAuth,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(HomeUiState())
+    private val _state = MutableStateFlow(run {
+        // Seed from cached profile so balance/streak/name show instantly on re-entry.
+        val m = userRepo.lastMe
+        HomeUiState(
+            name = displayName(m),
+            daily = m?.balance?.daily ?: 0,
+            subscription = m?.balance?.subscription ?: 0,
+            streak = m?.streak ?: 0,
+            solvedCount = m?.solvedCount ?: 0,
+        )
+    })
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
     private var searchJob: Job? = null
+
+    private fun displayName(m: com.pandasolve.app.domain.model.Me?): String =
+        m?.displayName?.takeIf { it.isNotBlank() }
+            ?: auth.currentEmail()?.substringBefore("@")?.replaceFirstChar { it.uppercase() }.orEmpty()
 
     /** Full load: profile + albums + tasks (current filter/query). */
     fun refresh() {
@@ -60,8 +74,7 @@ class HomeViewModel @Inject constructor(
                 val me = userRepo.me()
                 _state.update {
                     it.copy(
-                        name = auth.currentEmail()?.substringBefore("@")
-                            ?.replaceFirstChar { c -> c.uppercase() }.orEmpty(),
+                        name = displayName(me),
                         daily = me.balance.daily,
                         subscription = me.balance.subscription,
                         streak = me.streak,

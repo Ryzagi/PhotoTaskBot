@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.TaskRepository
+import com.pandasolve.app.domain.model.TaskDetail
 import com.pandasolve.app.latex.latexToUnicode
 import com.pandasolve.app.ui.component.AlbumOption
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +27,7 @@ data class TaskUiState(
     val problems: List<ProblemUi> = emptyList(),
     val albums: List<AlbumOption> = emptyList(),
     val albumName: String? = null,
+    val taskAlbumId: String? = null,
     val chat: List<ChatTurn> = emptyList(),
     val sending: Boolean = false,
     val chatRemaining: Int = 3,   // free follow-up questions left
@@ -43,50 +45,60 @@ class TaskDetailViewModel @Inject constructor(
 
     fun load(taskId: String) {
         if (taskId.isBlank()) return
+        // Instant paint from cache on re-open; the network refresh follows.
+        taskRepo.cachedTask(taskId)?.let { applyTask(it) }
         viewModelScope.launch {
-            runCatching {
-                albumRepo.list().map { AlbumOption(it.id, it.name, it.emoji ?: "📚") }
-            }.onSuccess { opts -> _state.update { it.copy(albums = opts) } }
-
-            runCatching { taskRepo.chatHistory(taskId) }
-                .onSuccess { thread -> _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining) } }
-                .onFailure { Timber.w(it, "chat history load failed") }
-
-            repeat(30) { // poll up to ~60s while pending
-                val ok = runCatching {
-                    val t = taskRepo.get(taskId)
-                    val problems = t.solution?.solutions?.map { p ->
-                        ProblemUi(
-                            problem = latexToUnicode(p.problem),
-                            steps = p.steps.map { latexToUnicode(it.content) },
-                            answer = p.solution.joinToString("  ") { latexToUnicode(it.content) },
-                        )
-                    }.orEmpty()
-                    _state.update { st ->
-                        st.copy(
-                            status = t.status,
-                            condition = t.inputText?.let(::latexToUnicode)
-                                ?: problems.firstOrNull()?.problem ?: st.condition,
-                            problems = problems,   // real data only — no sample fallback
-                            // resolve the persisted album (tasks.album_id) so the badge
-                            // survives an app restart, not just an in-session assign.
-                            albumName = t.albumId?.let { id -> st.albums.firstOrNull { a -> a.id == id }?.name },
-                            live = true,
-                        )
+            // Albums (picker + badge) and chat load CONCURRENTLY with the task — the
+            // task is what the user waits for, so it isn't queued behind them.
+            launch {
+                runCatching { albumRepo.list().map { AlbumOption(it.id, it.name, it.emoji ?: "📚") } }
+                    .onSuccess { opts ->
+                        _state.update { st ->
+                            st.copy(albums = opts, albumName = st.taskAlbumId?.let { id -> opts.firstOrNull { it.id == id }?.name } ?: st.albumName)
+                        }
                     }
-                    t.status
-                }.getOrElse {
-                    // Real load failed (e.g. task not found) — show a failed state, never mock.
+                    .onFailure { Timber.w(it, "albums load failed") }
+            }
+            launch {
+                runCatching { taskRepo.chatHistory(taskId) }
+                    .onSuccess { thread -> _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining) } }
+                    .onFailure { Timber.w(it, "chat history load failed") }
+            }
+            // Task — priority; poll while pending.
+            repeat(30) {
+                val status = runCatching { applyTask(taskRepo.get(taskId)) }.getOrElse {
                     Timber.w(it, "task load failed")
-                    _state.update {
-                        it.copy(status = "failed", condition = "Не удалось загрузить задачу", live = true)
+                    if (!_state.value.live) {
+                        _state.update { it.copy(status = "failed", condition = "Не удалось загрузить задачу", live = true) }
                     }
                     return@launch
                 }
-                if (ok != "pending") return@launch
+                if (status != "pending") return@launch
                 delay(2000)
             }
         }
+    }
+
+    /** Map a fetched task into UI state (resolving the album badge from loaded albums). */
+    private fun applyTask(t: TaskDetail): String {
+        val problems = t.solution?.solutions?.map { p ->
+            ProblemUi(
+                problem = latexToUnicode(p.problem),
+                steps = p.steps.map { latexToUnicode(it.content) },
+                answer = p.solution.joinToString("  ") { latexToUnicode(it.content) },
+            )
+        }.orEmpty()
+        _state.update { st ->
+            st.copy(
+                status = t.status,
+                condition = t.inputText?.let(::latexToUnicode) ?: problems.firstOrNull()?.problem ?: st.condition,
+                problems = problems,
+                taskAlbumId = t.albumId,
+                albumName = t.albumId?.let { id -> st.albums.firstOrNull { a -> a.id == id }?.name } ?: st.albumName,
+                live = true,
+            )
+        }
+        return t.status
     }
 
     fun assignAlbum(taskId: String, album: AlbumOption?) {

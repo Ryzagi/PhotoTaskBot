@@ -7,6 +7,7 @@ import com.pandasolve.app.domain.model.TaskDetail
 import com.pandasolve.app.domain.model.TaskList
 import com.pandasolve.app.domain.model.TaskUpdateRequest
 import com.pandasolve.app.network.PandaApiService
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -30,10 +31,14 @@ class TaskRepository @Inject constructor(
     suspend fun submitText(text: String): String =
         api.submitText(TaskCreateText(text = text)).taskId
 
-    suspend fun get(id: String): TaskDetail = api.getTask(id)
+    // Cache loaded tasks so re-opening one paints instantly while it refreshes.
+    private val taskCache = ConcurrentHashMap<String, TaskDetail>()
+    fun cachedTask(id: String): TaskDetail? = taskCache[id]
+
+    suspend fun get(id: String): TaskDetail = api.getTask(id).also { taskCache[id] = it }
 
     suspend fun rename(id: String, title: String): TaskDetail =
-        api.updateTask(id, TaskUpdateRequest(title = title))
+        api.updateTask(id, TaskUpdateRequest(title = title)).also { taskCache[id] = it }
 
     suspend fun chatHistory(taskId: String): ChatThread = api.getChat(taskId)
 

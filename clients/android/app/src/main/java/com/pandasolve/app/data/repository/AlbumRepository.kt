@@ -12,7 +12,12 @@ import javax.inject.Singleton
 class AlbumRepository @Inject constructor(
     private val api: PandaApiService,
 ) {
-    suspend fun list(): List<Album> = api.listAlbums().items
+    /** Last album count, cached so Profile can show it without waiting. */
+    @Volatile
+    var lastCount: Int? = null
+        private set
+
+    suspend fun list(): List<Album> = api.listAlbums().items.also { lastCount = it.size }
 
     suspend fun create(name: String, emoji: String?, color: String?): Album =
         api.createAlbum(AlbumCreateRequest(name = name, emoji = emoji, color = color))

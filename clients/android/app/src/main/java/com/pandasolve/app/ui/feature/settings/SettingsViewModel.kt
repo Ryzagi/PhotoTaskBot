@@ -38,9 +38,24 @@ class SettingsViewModel @Inject constructor(
     private val auth: SupabaseAuth,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(
-        ProfileUiState(language = languageManager.language.value, notifEnabled = notifPrefs.enabled),
-    )
+    private val _state = MutableStateFlow(run {
+        // Seed from the cached profile so counts show instantly on re-open (no spinner wait).
+        val m = userRepo.lastMe
+        val email = auth.currentEmail()
+        ProfileUiState(
+            language = languageManager.language.value,
+            notifEnabled = notifPrefs.enabled,
+            email = email ?: "",
+            name = m?.displayName?.takeIf { it.isNotBlank() }
+                ?: email?.substringBefore("@")?.replaceFirstChar { it.uppercase() } ?: "",
+            daily = m?.balance?.daily ?: 0,
+            subscription = m?.balance?.subscription ?: 0,
+            telegramLinked = m?.telegramLinked ?: false,
+            solved = m?.solvedCount ?: 0,
+            streak = m?.streak ?: 0,
+            albums = albumRepo.lastCount ?: 0,
+        )
+    })
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
     /** Rename the user (display name) — persisted via POST /v1/me. */

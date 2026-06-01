@@ -20,7 +20,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.clickable
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pandasolve.app.i18n.EnStrings
+import com.pandasolve.app.i18n.LocalStrings
+import com.pandasolve.app.i18n.supportedLanguages
 import com.pandasolve.app.ui.component.Candy
 import com.pandasolve.app.ui.component.CandyButton
 import com.pandasolve.app.ui.component.Panda
@@ -33,8 +37,10 @@ import com.pandasolve.app.ui.theme.cute
 @Composable
 fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewModel()) {
     val c = cute
+    val t = LocalStrings.current
     val state by viewModel.state.collectAsState()
     LaunchedEffect(state.signedIn) { if (state.signedIn) onSignedIn() }
+    val currentLang = if (t == EnStrings) "en" else "ru"
 
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -50,28 +56,45 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
             .padding(horizontal = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(16.dp))
+        // language selector
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            supportedLanguages.forEach { opt ->
+                val sel = opt.code == currentLang
+                Text(
+                    opt.code.uppercase(),
+                    fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp,
+                    color = if (sel) c.mintDeep else c.inkFaint,
+                    modifier = Modifier.clip(RoundedCornerShape(999.dp))
+                        .background(if (sel) c.mintSoft else c.card)
+                        .clickable { viewModel.setLanguage(opt.code) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+        }
+        Spacer(Modifier.height(16.dp))
         Panda(Modifier.size(118.dp).offset(y = dy.dp))
-        Text("Приве-е-ет! ✿", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 30.sp, color = c.coralDeep)
-        Text("Давай решать\nвместе", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 30.sp,
+        Text(t.signinGreeting, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 30.sp, color = c.coralDeep)
+        Text(t.signinTitle, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 30.sp,
             lineHeight = 33.sp, color = c.ink, textAlign = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
-        Text("Сфоткай задачу — я объясню по шагам. Не просто ответ 💚",
+        Text(t.signinSubtitle,
             fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkSoft,
             textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 260.dp))
 
         Spacer(Modifier.height(26.dp))
-        CuteField("почта", email, { email = it }, focus = true)
+        CuteField(t.fieldEmail, email, { email = it }, focus = true)
         Spacer(Modifier.height(12.dp))
-        CuteField("пароль", password, { password = it }, password = true)
+        CuteField(t.fieldPassword, password, { password = it }, password = true)
 
         Spacer(Modifier.height(16.dp))
-        CandyButton("Войти 🚀", { viewModel.signInWithEmail(email, password) }, Modifier.fillMaxWidth(), Candy.Mint, enabled = !state.busy)
+        CandyButton(t.signinButton, { viewModel.signInWithEmail(email, password) }, Modifier.fillMaxWidth(), Candy.Mint, enabled = !state.busy)
 
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(2.dp)).background(c.line))
-            Text("  ИЛИ  ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.inkFaint)
+            Text("  ${t.orDivider}  ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.inkFaint)
             Box(Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(2.dp)).background(c.line))
         }
         Spacer(Modifier.height(14.dp))
@@ -86,7 +109,7 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
         }
 
         Spacer(Modifier.height(20.dp))
-        Text("Войдя, ты соглашаешься с правилами и конфиденциальностью.",
+        Text(t.signinTerms,
             fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 11.sp, color = c.inkFaint,
             textAlign = TextAlign.Center, lineHeight = 15.sp)
         Spacer(Modifier.height(28.dp))

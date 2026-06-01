@@ -419,3 +419,31 @@ features, and a few backend pieces. Order/grouping at the end.
    R3-12 (emoji picker +), R3-10 (>5 leaves — needs design call), R3-4 (verify album badge).
 3. **Backend + client features:** R3-6 (rename user), R3-3 (rename task), R3-7 (notif switch),
    R3-16 (free chat limit).
+
+---
+
+# Round 4 — post-retest (recorded 2026-06-01)
+
+## R4-1. Home name didn't match the renamed display name — FIXED
+- **Cause:** `HomeViewModel` derived the greeting from the email prefix, ignoring `me.displayName`
+  (only Profile used it). **Fix:** added `displayName(me)` helper used in initial state + refresh
+  (prefers `display_name`, falls back to email prefix). Needs backend redeploy for `display_name`.
+
+## R4-2. Returning from camera, Home renders in two stages (bottom then top) — OPEN (mitigated)
+- **type:** bug (perf/layout) · **area:** `Navigation`/`HomeScreen`/insets.
+- **Hypothesis:** on pop-back the destination recomposes; the bottom bar (simple, BottomCenter)
+  paints before the LazyColumn settles, and/or `statusBarsPadding` recomputes after the camera
+  teardown so the top shifts a frame later.
+- **Mitigation shipped:** Home now seeds from cached `Me` (R4-4) + retains VM state, so content is
+  present immediately instead of empty→full. **Re-test** — if the staged paint persists it likely
+  needs a nav enter-transition / hoisting insets per-screen; profile on device.
+
+## R4-3. Bottom-bar labels ("Главная"/"Профиль") clipped — FIXED (pending re-test)
+- **Cause:** bar shrunk to 84dp (Round-1 #6) + longer labels → vertical clip. **Fix:** bar 84→92dp,
+  Row bottom padding 22→14, labels `maxLines=1, softWrap=false`.
+
+## R4-4. Solved/achievement counts wait for load — FIXED (session cache)
+- **Resolution:** `UserRepository.lastMe` + `AlbumRepository.lastCount` cache the last load
+  in-memory; `SettingsViewModel`/`HomeViewModel` seed their initial state from them, so counts show
+  instantly on re-open and then refresh. (First-ever load still fetches; cache is per app session.)
+- **Follow-up if needed:** persist the cache to DataStore to survive cold starts.
