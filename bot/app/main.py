@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from bot.api.internal import router as internal_router
 from bot.api.v1 import router as v1_router
 from bot.app.app import app as legacy_app  # keep the bot working
+from bot.auth.internal_middleware import InternalAuthMiddleware
 from bot.schemas.errors import make as make_error
 
 load_dotenv()
@@ -58,6 +59,10 @@ async def validation_exception_handler(_request, exc: RequestValidationError):
         make_error("validation_failed", "Validation failed.", {"errors": exc.errors()}),
         status_code=422,
     )
+
+
+# HMAC-verify /internal/* before body parsing (see InternalAuthMiddleware docstring).
+app.add_middleware(InternalAuthMiddleware)
 
 
 @app.get("/healthz")
