@@ -17,6 +17,7 @@ class User(BaseModel):
     telegram_user_id: int | None = None
     auth_user_id: str | None = None
     language_code: str = "ru"
+    display_name: str | None = None
     is_premium: bool = False
     created_at: datetime
 
@@ -29,6 +30,7 @@ class MeResponse(BaseModel):
     id: str
     telegram_linked: bool
     language_code: str
+    display_name: str | None = None
     balance: Balance
     created_at: datetime
     solved_count: int = 0           # total tasks solved (status=done)
@@ -37,6 +39,7 @@ class MeResponse(BaseModel):
 
 class UpdateMeRequest(BaseModel):
     language_code: str | None = None
+    display_name: str | None = Field(default=None, max_length=60)
 
 
 class LinkStartResponse(BaseModel):

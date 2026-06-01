@@ -61,6 +61,19 @@ data class Strings(
     val albumNone: String,
     val albumPickerEmpty: String,
     val albumCustomIconHint: String,
+    // task long-press actions + rename
+    val taskActionsTitle: String,
+    val taskAssignAlbum: String,
+    val taskRename: String,
+    val renameHint: String,
+    val save: String,
+    // chat limit
+    val chatRemaining: String,   // "%d left"
+    val chatLimitReached: String,
+    val chatTopUp: String,
+    // profile extras
+    val notifications: String,
+    val notificationsHint: String,
 )
 
 val RuStrings = Strings(
@@ -111,6 +124,16 @@ val RuStrings = Strings(
     albumNone = "Без альбома",
     albumPickerEmpty = "Пока нет альбомов — создай их на главном экране (＋).",
     albumCustomIconHint = "🙂 вставь любой эмодзи",
+    taskActionsTitle = "Что сделать?",
+    taskAssignAlbum = "📁 В альбом",
+    taskRename = "✏️ Переименовать",
+    renameHint = "Название задачи",
+    save = "Сохранить",
+    chatRemaining = "осталось %d",
+    chatLimitReached = "Бесплатные вопросы закончились — пополни бамбук 🎋",
+    chatTopUp = "Пополнить",
+    notifications = "Уведомления",
+    notificationsHint = "решения и ответы",
 )
 
 val EnStrings = Strings(
@@ -161,6 +184,16 @@ val EnStrings = Strings(
     albumNone = "No album",
     albumPickerEmpty = "No albums yet — create one on Home (＋).",
     albumCustomIconHint = "🙂 paste any emoji",
+    taskActionsTitle = "What to do?",
+    taskAssignAlbum = "📁 To album",
+    taskRename = "✏️ Rename",
+    renameHint = "Task title",
+    save = "Save",
+    chatRemaining = "%d left",
+    chatLimitReached = "Free questions used up — top up bamboo 🎋",
+    chatTopUp = "Top up",
+    notifications = "Notifications",
+    notificationsHint = "solutions and replies",
 )
 
 /** Map a backend `language_code` (e.g. "ru", "en", "en-US") to a string table. */

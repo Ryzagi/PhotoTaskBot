@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.AlbumOption
 import com.pandasolve.app.ui.component.AlbumPickerDialog
 import com.pandasolve.app.ui.component.Panda
@@ -43,6 +44,7 @@ import com.pandasolve.app.ui.theme.cute
 @Composable
 fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailViewModel = hiltViewModel()) {
     val c = cute
+    val t = LocalStrings.current
     val s by viewModel.state.collectAsState()
     LaunchedEffect(taskId) { viewModel.load(taskId) }
     val first = s.problems.firstOrNull()
@@ -134,6 +136,13 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 Spacer(Modifier.height(10.dp))
                 Text("панда печатает…", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.lavDeep)
             }
+            if (s.chatRemaining <= 0) {
+                Spacer(Modifier.height(10.dp))
+                Text(t.chatLimitReached, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.coralDeep)
+            } else if (s.chat.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(t.chatRemaining.format(s.chatRemaining), fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkFaint)
+            }
         }
 
         // chat bar (lifts above the keyboard)
@@ -154,7 +163,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 },
             )
             Spacer(Modifier.width(8.dp))
-            val canSend = draft.isNotBlank() && !s.sending
+            val canSend = draft.isNotBlank() && !s.sending && s.chatRemaining > 0
             Box(
                 Modifier.size(40.dp).clip(CircleShape)
                     .background(Brush.linearGradient(listOf(c.coral, c.pink)))

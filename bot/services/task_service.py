@@ -16,6 +16,13 @@ from bot.supabase_service import SupabaseService
 
 InputKind = Literal["image", "text", "latex"]
 
+FREE_CHAT_LIMIT = 3   # free follow-up questions per task before a top-up is needed
+
+
+def _remaining(messages: list[dict]) -> int:
+    used = sum(1 for m in messages if m.get("role") == "user")
+    return max(0, FREE_CHAT_LIMIT - used)
+
 
 class TaskService:
     THUMB_SIZE = (256, 256)
@@ -135,16 +142,28 @@ class TaskService:
             return None
         return row
 
-    async def chat_history(self, user_id: str, task_id: str) -> list[dict] | None:
+    async def rename(self, user_id: str, task_id: str, title: str) -> TaskDetail | None:
         if await self._owned_task(user_id, task_id) is None:
             return None
-        return await self.db.list_messages(task_id)
+        await self.db.update_task_title(user_id, task_id, title.strip())
+        return await self.get(user_id, task_id)
 
-    async def chat(self, user_id: str, task_id: str, message: str) -> list[dict] | None:
-        """Follow-up Q&A: store the question, answer it with the task as context, store the reply."""
+    async def chat_history(self, user_id: str, task_id: str) -> tuple[list[dict], int] | None:
+        if await self._owned_task(user_id, task_id) is None:
+            return None
+        msgs = await self.db.list_messages(task_id)
+        return msgs, _remaining(msgs)
+
+    async def chat(self, user_id: str, task_id: str, message: str) -> tuple[list[dict], int] | None:
+        """Follow-up Q&A: store the question, answer it with the task as context, store the reply.
+        Capped at FREE_CHAT_LIMIT questions per task; beyond that the client prompts a top-up."""
         task = await self._owned_task(user_id, task_id)
         if task is None:
             return None
+
+        history = await self.db.list_messages(task_id)
+        if _remaining(history) <= 0:
+            return history, 0   # limit reached — don't spend an LLM call
 
         solution = task.get("solution") or {}
         sols = solution.get("solutions") or []
@@ -157,7 +176,6 @@ class TaskService:
                 parts.append(blk.get("content", ""))
         solution_text = "\n".join(parts)
 
-        history = await self.db.list_messages(task_id)
         await self.db.insert_message(task_id, user_id, "user", message)
         try:
             reply = await self.gpt.generate_chat_reply(
@@ -168,7 +186,8 @@ class TaskService:
         except Exception:
             reply = "Не удалось ответить — попробуй переформулировать вопрос чуть позже 🐼"
         await self.db.insert_message(task_id, user_id, "assistant", reply)
-        return await self.db.list_messages(task_id)
+        msgs = await self.db.list_messages(task_id)
+        return msgs, _remaining(msgs)
 
     async def list(self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None, q: str | None = None) -> TaskList:
         rows = await self.db.list_tasks(user_id, limit=limit, before=before, album_id=album_id, q=q)

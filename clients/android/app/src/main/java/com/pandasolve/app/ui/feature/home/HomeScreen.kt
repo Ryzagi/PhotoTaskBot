@@ -30,6 +30,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pandasolve.app.domain.model.Album
 import com.pandasolve.app.i18n.EnStrings
@@ -37,10 +38,13 @@ import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.AlbumEditorDialog
 import com.pandasolve.app.ui.component.AlbumOption
 import com.pandasolve.app.ui.component.AlbumPickerDialog
+import com.pandasolve.app.ui.component.Candy
+import com.pandasolve.app.ui.component.CandyButton
 import com.pandasolve.app.ui.component.CuteBottomBar
 import com.pandasolve.app.ui.component.CuteTab
 import com.pandasolve.app.ui.component.Panda
 import com.pandasolve.app.ui.component.ThreadCard
+import com.pandasolve.app.ui.sample.SampleThread
 import com.pandasolve.app.ui.component.albumSwatch
 import com.pandasolve.app.ui.component.dotPaper
 import com.pandasolve.app.ui.theme.Baloo
@@ -63,6 +67,8 @@ fun HomeScreen(
     var assignTaskId by remember { mutableStateOf<String?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var editAlbum by remember { mutableStateOf<Album?>(null) }
+    var actionCard by remember { mutableStateOf<SampleThread?>(null) }   // long-pressed task
+    var renameCard by remember { mutableStateOf<SampleThread?>(null) }
     val dayOpen = remember { mutableStateMapOf<String, Boolean>() }   // date → expanded
 
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
@@ -163,7 +169,7 @@ fun HomeScreen(
                                     ThreadCard(
                                         card,
                                         onClick = { if (card.id.isNotBlank()) onTask(card.id) },
-                                        onLongClick = { if (card.id.isNotBlank()) assignTaskId = card.id },
+                                        onLongClick = { if (card.id.isNotBlank()) actionCard = card },
                                     )
                                 }
                             }
@@ -207,6 +213,50 @@ fun HomeScreen(
             onSave = { name, emoji, color -> viewModel.updateAlbum(a.id, name, emoji, color); editAlbum = null },
             onDelete = { viewModel.deleteAlbum(a.id); editAlbum = null },
         )
+    }
+    // long-press a task → choose action
+    actionCard?.let { card ->
+        Dialog(onDismissRequest = { actionCard = null }) {
+            Column(Modifier.clip(RoundedCornerShape(24.dp)).background(c.paper).padding(20.dp)) {
+                Text(t.taskActionsTitle, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 18.sp, color = c.ink)
+                Spacer(Modifier.height(12.dp))
+                Text(t.taskAssignAlbum, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                        .clickable { assignTaskId = card.id; actionCard = null }.padding(vertical = 12.dp, horizontal = 8.dp))
+                Text(t.taskRename, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                        .clickable { renameCard = card; actionCard = null }.padding(vertical = 12.dp, horizontal = 8.dp))
+            }
+        }
+    }
+    // rename a task
+    renameCard?.let { card ->
+        var title by remember(card.id) { mutableStateOf(card.preview) }
+        Dialog(onDismissRequest = { renameCard = null }) {
+            Column(Modifier.clip(RoundedCornerShape(24.dp)).background(c.paper).padding(22.dp)) {
+                Text(t.taskRename, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 18.sp, color = c.ink)
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.card)
+                        .border(2.dp, c.mint, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    BasicTextField(
+                        value = title, onValueChange = { title = it }, singleLine = true,
+                        cursorBrush = SolidColor(c.mintDeep),
+                        textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink),
+                        decorationBox = { inner ->
+                            if (title.isEmpty()) Text(t.renameHint, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 15.sp, color = c.inkFaint)
+                            inner()
+                        },
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CandyButton(t.cancel, { renameCard = null }, Modifier.weight(1f), Candy.Ghost)
+                    CandyButton(t.save, { viewModel.renameTask(card.id, title); renameCard = null }, Modifier.weight(1f), Candy.Mint, enabled = title.isNotBlank())
+                }
+            }
+        }
     }
 }
 

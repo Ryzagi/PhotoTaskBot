@@ -6,6 +6,7 @@ import com.pandasolve.app.auth.SupabaseAuth
 import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.UserRepository
 import com.pandasolve.app.i18n.LanguageManager
+import com.pandasolve.app.push.NotifPrefs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ data class ProfileUiState(
     val albums: Int = 0,
     val streak: Int = 0,
     val language: String = "ru",
+    val notifEnabled: Boolean = true,
     val live: Boolean = false,
 )
 
@@ -32,11 +34,27 @@ class SettingsViewModel @Inject constructor(
     private val userRepo: UserRepository,
     private val albumRepo: AlbumRepository,
     private val languageManager: LanguageManager,
+    private val notifPrefs: NotifPrefs,
     private val auth: SupabaseAuth,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(ProfileUiState(language = languageManager.language.value))
+    private val _state = MutableStateFlow(
+        ProfileUiState(language = languageManager.language.value, notifEnabled = notifPrefs.enabled),
+    )
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    /** Rename the user (display name) — persisted via POST /v1/me. */
+    fun setName(name: String) {
+        if (name.isBlank()) return
+        _state.value = _state.value.copy(name = name.trim())
+        viewModelScope.launch { runCatching { userRepo.updateDisplayName(name.trim()) } }
+    }
+
+    /** Push opt-in. Persists locally; FCM registration honours it once configured. */
+    fun setNotifications(on: Boolean) {
+        notifPrefs.enabled = on
+        _state.value = _state.value.copy(notifEnabled = on)
+    }
 
     /** Pick a UI language: persist locally (drives LocalStrings immediately) + sync to backend. */
     fun setLanguage(code: String) {
@@ -54,7 +72,8 @@ class SettingsViewModel @Inject constructor(
                 val albumCount = runCatching { albumRepo.list().size }.getOrDefault(0)
                 _state.value = _state.value.copy(
                     email = email ?: _state.value.email,
-                    name = email?.substringBefore("@")?.replaceFirstChar { it.uppercase() } ?: _state.value.name,
+                    name = me.displayName?.takeIf { it.isNotBlank() }
+                        ?: email?.substringBefore("@")?.replaceFirstChar { it.uppercase() } ?: _state.value.name,
                     daily = me.balance.daily,
                     subscription = me.balance.subscription,
                     telegramLinked = me.telegramLinked,

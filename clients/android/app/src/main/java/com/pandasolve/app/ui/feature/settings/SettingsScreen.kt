@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -20,15 +22,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.supportedLanguages
+import com.pandasolve.app.ui.component.Candy
+import com.pandasolve.app.ui.component.CandyButton
 import com.pandasolve.app.ui.component.CuteBottomBar
 import com.pandasolve.app.ui.component.CuteTab
 import com.pandasolve.app.ui.component.Panda
@@ -47,6 +54,7 @@ fun ProfileScreen(
     val c = cute
     val t = LocalStrings.current
     val s by viewModel.state.collectAsState()
+    var showRename by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.refresh() }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
@@ -66,7 +74,11 @@ fun ProfileScreen(
                 Panda(Modifier.size(60.dp).clip(CircleShape).background(Color.White))
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(s.name, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 21.sp, color = c.ink)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.name, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 21.sp, color = c.ink)
+                        Spacer(Modifier.width(6.dp))
+                        Text("✏️", fontSize = 14.sp, modifier = Modifier.clip(CircleShape).clickable { showRename = true }.padding(2.dp))
+                    }
                     Text(s.email, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkSoft)
                 }
                 if (s.telegramLinked) Box(Modifier.clip(RoundedCornerShape(999.dp)).background(c.mintSoft).padding(horizontal = 10.dp, vertical = 4.dp)) {
@@ -110,12 +122,50 @@ fun ProfileScreen(
                         }
                     }
                 }
-                Row2("🔔", c.butterSoft, t.rowNotifications, t.rowNotificationsHint, "→", c.inkSoft)
+                // notifications toggle
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.card)
+                        .border(2.dp, c.line, RoundedCornerShape(20.dp)).padding(start = 14.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(c.butterSoft), contentAlignment = Alignment.Center) { Text("🔔", fontSize = 16.sp) }
+                    Spacer(Modifier.width(13.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t.notifications, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 14.sp, color = c.ink)
+                        Text(t.notificationsHint.uppercase(), fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 10.sp, color = c.inkFaint)
+                    }
+                    Switch(checked = s.notifEnabled, onCheckedChange = { viewModel.setNotifications(it) })
+                }
                 Row2("👋", c.coralSoft, t.rowSignOut, null, "→", c.coralDeep, danger = true, onClick = { viewModel.signOut(onSignOut) })
             }
         }
 
         CuteBottomBar(CuteTab.Profile, onHome = onHome, onCamera = onCamera, onProfile = {}, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (showRename) {
+        var name by remember { mutableStateOf(s.name) }
+        Dialog(onDismissRequest = { showRename = false }) {
+            Column(Modifier.clip(RoundedCornerShape(24.dp)).background(c.paper).padding(22.dp)) {
+                Text(t.taskRename, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 18.sp, color = c.ink)
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.card)
+                        .border(2.dp, c.mint, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    BasicTextField(
+                        value = name, onValueChange = { name = it }, singleLine = true,
+                        cursorBrush = SolidColor(c.mintDeep),
+                        textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CandyButton(t.cancel, { showRename = false }, Modifier.weight(1f), Candy.Ghost)
+                    CandyButton(t.save, { viewModel.setName(name); showRename = false }, Modifier.weight(1f), Candy.Mint, enabled = name.isNotBlank())
+                }
+            }
+        }
     }
 }
 

@@ -57,3 +57,6 @@ class UserService:
 
     async def update_language(self, user_id: str, language_code: str) -> User:
         return await self.db.update_user_language(user_id, language_code)
+
+    async def update_display_name(self, user_id: str, display_name: str) -> User:
+        return await self.db.update_user_display_name(user_id, display_name.strip())

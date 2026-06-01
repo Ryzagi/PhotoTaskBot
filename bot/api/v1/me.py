@@ -23,6 +23,7 @@ async def get_me(
         id=user.id,
         telegram_linked=user.telegram_linked,
         language_code=user.language_code,
+        display_name=user.display_name,
         balance=balance,
         created_at=user.created_at,
         solved_count=stats["solved_count"],
@@ -38,12 +39,15 @@ async def update_me(
 ) -> MeResponse:
     if payload.language_code:
         user = await user_service.update_language(user.id, payload.language_code)
+    if payload.display_name is not None:
+        user = await user_service.update_display_name(user.id, payload.display_name)
     balance = await user_service.get_balance(user.id)
     stats = await user_service.get_stats(user.id)
     return MeResponse(
         id=user.id,
         telegram_linked=user.telegram_linked,
         language_code=user.language_code,
+        display_name=user.display_name,
         balance=balance,
         created_at=user.created_at,
         solved_count=stats["solved_count"],

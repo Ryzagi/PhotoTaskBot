@@ -111,6 +111,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun renameTask(taskId: String, title: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            runCatching { taskRepo.rename(taskId, title.trim()) }
+                .onSuccess { reloadTasks() }
+                .onFailure { Timber.w(it, "rename task failed") }
+        }
+    }
+
     fun createAlbum(name: String, emoji: String, color: String) {
         if (name.isBlank()) return
         viewModelScope.launch {

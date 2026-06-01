@@ -16,4 +16,7 @@ class UserRepository @Inject constructor(
 
     suspend fun updateLanguage(code: String): Me =
         api.updateMe(UpdateMeRequest(languageCode = code))
+
+    suspend fun updateDisplayName(name: String): Me =
+        api.updateMe(UpdateMeRequest(displayName = name))
 }

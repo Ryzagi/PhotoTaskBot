@@ -26,6 +26,10 @@ class TaskCreateText(BaseModel):
     text: str = Field(min_length=1, max_length=10_000)
 
 
+class TaskUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
 class TaskRef(BaseModel):
     task_id: str
     status: Literal["pending", "done", "failed"]
@@ -60,6 +64,7 @@ class ChatRequest(BaseModel):
 
 class ChatThread(BaseModel):
     messages: list[ChatMessage]
+    remaining: int = 0              # free follow-up questions left for this task
 
 
 class TaskListItem(BaseModel):

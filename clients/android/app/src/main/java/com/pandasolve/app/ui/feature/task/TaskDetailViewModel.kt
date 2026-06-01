@@ -28,6 +28,7 @@ data class TaskUiState(
     val albumName: String? = null,
     val chat: List<ChatTurn> = emptyList(),
     val sending: Boolean = false,
+    val chatRemaining: Int = 3,   // free follow-up questions left
     val live: Boolean = false,
 )
 
@@ -48,7 +49,7 @@ class TaskDetailViewModel @Inject constructor(
             }.onSuccess { opts -> _state.update { it.copy(albums = opts) } }
 
             runCatching { taskRepo.chatHistory(taskId) }
-                .onSuccess { msgs -> _state.update { it.copy(chat = msgs.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }) } }
+                .onSuccess { thread -> _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining) } }
                 .onFailure { Timber.w(it, "chat history load failed") }
 
             repeat(30) { // poll up to ~60s while pending
@@ -97,12 +98,12 @@ class TaskDetailViewModel @Inject constructor(
     }
 
     fun sendChat(taskId: String, message: String) {
-        if (taskId.isBlank() || message.isBlank() || _state.value.sending) return
+        if (taskId.isBlank() || message.isBlank() || _state.value.sending || _state.value.chatRemaining <= 0) return
         viewModelScope.launch {
             _state.update { it.copy(sending = true) }
             runCatching { taskRepo.sendChat(taskId, message.trim()) }
-                .onSuccess { msgs ->
-                    _state.update { it.copy(chat = msgs.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, sending = false) }
+                .onSuccess { thread ->
+                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining, sending = false) }
                 }
                 .onFailure { Timber.w(it, "send chat failed"); _state.update { it.copy(sending = false) } }
         }

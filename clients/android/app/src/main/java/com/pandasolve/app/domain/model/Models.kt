@@ -11,6 +11,7 @@ data class Me(
     val id: String,
     @SerialName("telegram_linked") val telegramLinked: Boolean,
     @SerialName("language_code") val languageCode: String,
+    @SerialName("display_name") val displayName: String? = null,
     val balance: Balance,
     @SerialName("created_at") val createdAt: String,
     @SerialName("solved_count") val solvedCount: Int = 0,
@@ -20,6 +21,7 @@ data class Me(
 @Serializable
 data class UpdateMeRequest(
     @SerialName("language_code") val languageCode: String? = null,
+    @SerialName("display_name") val displayName: String? = null,
 )
 
 @Serializable
@@ -126,7 +128,10 @@ data class ChatMessage(
 )
 
 @Serializable
-data class ChatThread(val messages: List<ChatMessage>)
+data class ChatThread(val messages: List<ChatMessage>, val remaining: Int = 0)
 
 @Serializable
 data class ChatSendRequest(val message: String)
+
+@Serializable
+data class TaskUpdateRequest(val title: String)

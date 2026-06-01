@@ -1,10 +1,11 @@
 package com.pandasolve.app.data.repository
 
-import com.pandasolve.app.domain.model.ChatMessage
 import com.pandasolve.app.domain.model.ChatSendRequest
+import com.pandasolve.app.domain.model.ChatThread
 import com.pandasolve.app.domain.model.TaskCreateText
 import com.pandasolve.app.domain.model.TaskDetail
 import com.pandasolve.app.domain.model.TaskList
+import com.pandasolve.app.domain.model.TaskUpdateRequest
 import com.pandasolve.app.network.PandaApiService
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,10 +32,13 @@ class TaskRepository @Inject constructor(
 
     suspend fun get(id: String): TaskDetail = api.getTask(id)
 
-    suspend fun chatHistory(taskId: String): List<ChatMessage> = api.getChat(taskId).messages
+    suspend fun rename(id: String, title: String): TaskDetail =
+        api.updateTask(id, TaskUpdateRequest(title = title))
 
-    suspend fun sendChat(taskId: String, message: String): List<ChatMessage> =
-        api.postChat(taskId, ChatSendRequest(message)).messages
+    suspend fun chatHistory(taskId: String): ChatThread = api.getChat(taskId)
+
+    suspend fun sendChat(taskId: String, message: String): ChatThread =
+        api.postChat(taskId, ChatSendRequest(message))
 
     suspend fun list(limit: Int, before: String?, albumId: String? = null, q: String? = null): TaskList =
         api.listTasks(limit = limit, before = before, albumId = albumId, q = q?.ifBlank { null })

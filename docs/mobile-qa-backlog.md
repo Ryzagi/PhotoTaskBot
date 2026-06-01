@@ -313,14 +313,16 @@ features, and a few backend pieces. Order/grouping at the end.
 - **Fix:** run `latexToUnicode` on the preview in `toRow` (client), or strip LaTeX in
   `_derive_title` (backend). Client-side is simplest and covers old rows.
 
-## R3-3. Rename a task (long-press)
+## R3-3. Rename a task (long-press) — DONE (needs redeploy + re-test)
+- **Resolution:** `PATCH /v1/tasks/{id}` (`TaskUpdate.title`) → `TaskService.rename` → `update_task_title`. Client: long-press a task → chooser (To album / Rename); rename dialog → `HomeViewModel.renameTask`.
 - **type:** feature · **area:** new `PATCH /v1/tasks/{id}` (title); long-press menu on Home.
 - **Cause/approach:** `tasks.title` already exists (0004). Add an endpoint to update it +
   `TaskService`/`SupabaseService` method. Client: long-press a task → action sheet with
   **Assign album** + **Rename** (rename → text dialog → `PATCH`, refresh). Currently long-press
   only opens the album picker — needs a small chooser first.
 
-## R3-4. Task detail doesn't show its album
+## R3-4. Task detail doesn't show its album — VERIFY after redeploy (no new code)
+- **Note:** R2-5 already returns `album_id` + resolves the badge; just confirm once the backend is redeployed.
 - **type:** bug · **area:** R2-5 path; verify backend redeploy + the chip rendering.
 - **Note:** R2-5 added `album_id` to `TaskDetail` + resolves the badge — confirm the backend was
   redeployed (field present) and the chip shows the album name, not "выбрать альбом". May also
@@ -333,14 +335,16 @@ features, and a few backend pieces. Order/grouping at the end.
   иначе" / "Nothing here — try another search" (distinct from the no-tasks-yet message). Add a
   `Strings` key for it.
 
-## R3-6. Rename user (display name) via pencil on Profile
+## R3-6. Rename user (display name) — DONE (needs migration 0006 + redeploy)
+- **Resolution:** migration `0006` adds `users.display_name`; `MeResponse`/`UpdateMeRequest`/`User` carry it; `update_user_display_name` + `user_service.update_display_name`; `/v1/me` returns + updates it. Client: ✏️ next to the name → rename dialog → `SettingsViewModel.setName`; Home/Profile prefer `display_name` over the email prefix.
 - **type:** feature · **area:** `users` display name (additive migration) + `POST /v1/me`;
   `SettingsScreen` name + pencil.
 - **Approach:** add `users.display_name` (or reuse `first_name`); extend `UpdateMeRequest` +
   `MeResponse` with `display_name`; Profile shows the name with a ✏️ that opens a rename dialog →
   `POST /v1/me`. Home greeting then uses it too (instead of the email local-part).
 
-## R3-7. Notifications On/Off switch on Profile
+## R3-7. Notifications On/Off switch — DONE (pref persists; delivery needs FCM)
+- **Resolution:** `NotifPrefs` (SharedPreferences) + a Material `Switch` on Profile via `SettingsViewModel.setNotifications`. Persists the opt-in; actual push delivery still requires `google-services.json` (see push-setup.md). FCM registration should consult `NotifPrefs` once configured.
 - **type:** feature · **area:** `SettingsScreen` row → `Switch`; `DeviceRepository` register/unregister.
 - **Will it work?** Yes mechanically: ON → register FCM token (`/v1/devices`), OFF → unregister
   (`DELETE /v1/devices/{token}`); persist the pref (DataStore/SharedPrefs). **But** actual push
@@ -399,7 +403,8 @@ features, and a few backend pieces. Order/grouping at the end.
   `clients/design/screens-cute.html` (screen 5). Date formatting probably belongs in the VM or a
   small helper.
 
-## R3-16. Free chat limit (3 messages, then top up)
+## R3-16. Free chat limit (3 then top-up) — DONE (needs migration 0005 already + redeploy)
+- **Resolution:** `FREE_CHAT_LIMIT=3` per task in `TaskService` (`_remaining` counts user msgs); at the limit `chat()` returns without an LLM call. `ChatThread.remaining` surfaced. Client shows 'осталось N', blocks the input at 0 and shows the top-up prompt (`chatLimitReached`). NOTE: a one-tap top-up button (fetch `/v1/topup/url` + open Telegram) is a small follow-up; for now it directs to the Profile top-up row.
 - **type:** feature · **area:** `bot/services/task_service.chat` + billing; client chat UI.
 - **Approach:** allow N free assistant replies per task (or per user); count existing `user`
   messages in `task_messages`; when exceeded, return a limit signal (e.g. 402 / a flag) instead of

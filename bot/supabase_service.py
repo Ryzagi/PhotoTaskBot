@@ -354,6 +354,7 @@ class SupabaseService:
             telegram_user_id=telegram,
             auth_user_id=row.get("auth_user_id"),
             language_code=row.get("language_code") or "ru",
+            display_name=row.get("display_name"),
             is_premium=str(row.get("is_premium")).lower() in ("true", "1", "t"),
             created_at=row.get("created_at") or _utcnow(),
         )
@@ -407,6 +408,16 @@ class SupabaseService:
         resp = (
             self.supabase_client.table(self._users_table)
             .update({"language_code": language_code})
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return self._row_to_user(resp.data[0])
+
+    async def update_user_display_name(self, user_id: str, display_name: str) -> User:
+        self._ensure_session()
+        resp = (
+            self.supabase_client.table(self._users_table)
+            .update({"display_name": display_name})
             .eq("user_id", user_id)
             .execute()
         )
@@ -714,6 +725,16 @@ class SupabaseService:
             .execute()
         )
         return bool(resp.data)
+
+    async def update_task_title(self, user_id: str, task_id: str, title: str) -> None:
+        self._ensure_session()
+        (
+            self.supabase_client.table(self._task_table)
+            .update({"title": title})
+            .eq("id", task_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
 
     # ─── Task chat (R2-2) ───
 

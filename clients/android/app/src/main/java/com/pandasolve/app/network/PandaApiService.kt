@@ -15,6 +15,7 @@ import com.pandasolve.app.domain.model.TaskCreateText
 import com.pandasolve.app.domain.model.TaskDetail
 import com.pandasolve.app.domain.model.TaskList
 import com.pandasolve.app.domain.model.TaskRef
+import com.pandasolve.app.domain.model.TaskUpdateRequest
 import com.pandasolve.app.domain.model.TopupUrl
 import com.pandasolve.app.domain.model.UpdateMeRequest
 import okhttp3.MultipartBody
@@ -64,6 +65,9 @@ interface PandaApiService {
 
     @GET("/v1/tasks/{task_id}")
     suspend fun getTask(@Path("task_id") taskId: String): TaskDetail
+
+    @PATCH("/v1/tasks/{task_id}")
+    suspend fun updateTask(@Path("task_id") taskId: String, @Body body: TaskUpdateRequest): TaskDetail
 
     @GET("/v1/tasks/{task_id}/chat")
     suspend fun getChat(@Path("task_id") taskId: String): ChatThread
