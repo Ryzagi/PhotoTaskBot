@@ -76,6 +76,18 @@ Supabase (Auth + Postgres + Storage) ── shared, hosted off-box
    docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
    ```
 
+## Two images (since the apt/TeX split)
+
+- **`Dockerfile`** (lean): the FastAPI `app` + arq `worker`. No apt/TeX — serves `/v1`,
+  `/internal`, legacy. Builds without touching Debian repos.
+- **`Dockerfile.bot`**: the `telegram_bot` only. Installs TeX Live (pdflatex + pdftoppm) for
+  `bot/latex_renderer.py` (PNG rendering), which is imported solely by `bot/app/tg_app.py`.
+- `.dockerignore` keeps `clients/` (~260 MB) and caches out of the build context.
+
+So **the mobile backend (`app`) rebuilds without TeX** — the recurring
+"At least one invalid signature was encountered" apt failure cannot block it. Only a bot
+rebuild touches apt.
+
 ## Deploy / update (the routine)
 
 From the phototaskbot repo dir on the server:
@@ -87,11 +99,14 @@ git fetch && git checkout <branch> && git pull        # e.g. master, or feat/mob
 # 2. Apply additive DB migrations (safe for the live bot; idempotent)
 make migrate                                           # needs DATABASE_URL; or paste bot/migrations/*.sql in Supabase
 
-# 3. Rebuild + restart (recreates app + telegram_bot on the new image)
-docker compose up -d --build
+# 3. Rebuild + restart the API only (lean image; bot keeps running on its container)
+docker compose build app && docker compose up -d app
 
 # 4. (optional) async solving + push: set REDIS_URL=redis://redis:6379 in .env, then
-docker compose --profile async up -d --build
+docker compose --profile async up -d --build worker redis
+
+# 5. (rarely) rebuild the bot — needs TeX Live, so the host apt/clock must be healthy first
+docker compose build telegram_bot && docker compose up -d telegram_bot
 ```
 
 The entrypoint is `bot.app.main:app` (NOT `bot.app.app:app`, which 404s on `/v1/*`).

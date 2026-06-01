@@ -34,7 +34,7 @@ services:
   telegram_bot:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.bot      # TeX Live (pdflatex) for PNG rendering
     command: python bot/app/tg_app.py
     env_file:
       - .env                       # bot token + INTERNAL_AUTH_SECRET for HMAC signing
