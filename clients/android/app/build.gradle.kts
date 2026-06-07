@@ -28,12 +28,14 @@ fun envProp(key: String, default: String = ""): String =
 
 android {
     namespace = "com.pandasolve.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 34
-        versionCode = (System.getenv("CI_BUILD_NUMBER") ?: "1").toInt()
+        targetSdk = 35
+        // Each Play upload needs a unique, higher code. Bump VERSION_CODE in
+        // local.properties (or set CI_BUILD_NUMBER) before each upload.
+        versionCode = envProp("VERSION_CODE", System.getenv("CI_BUILD_NUMBER") ?: "2").toInt()
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
