@@ -70,8 +70,27 @@ android {
             "\"" + envProp("GOOGLE_WEB_CLIENT_ID") + "\"")
     }
 
+    signingConfigs {
+        // Release/upload signing for Play. Put these in local.properties (gitignored):
+        //   RELEASE_KEYSTORE=/abs/path/upload-keystore.jks
+        //   RELEASE_STORE_PASSWORD=...  RELEASE_KEY_ALIAS=upload  RELEASE_KEY_PASSWORD=...
+        // Create one: keytool -genkeypair -v -keystore upload-keystore.jks \
+        //   -alias upload -keyalg RSA -keysize 2048 -validity 10000
+        val ksPath = envProp("RELEASE_KEYSTORE")
+        if (ksPath.isNotBlank()) {
+            create("release") {
+                storeFile = file(ksPath)
+                storePassword = envProp("RELEASE_STORE_PASSWORD")
+                keyAlias = envProp("RELEASE_KEY_ALIAS")
+                keyPassword = envProp("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Signed only when the RELEASE_* props are present; otherwise unsigned.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -170,6 +189,9 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // Google Play Billing — in-app purchases (adds the BILLING permission to the manifest).
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
 
     // implementation(libs.math.view) // TODO: JitPack unavailable, re-enable when fixed
     implementation(libs.sentry.android)

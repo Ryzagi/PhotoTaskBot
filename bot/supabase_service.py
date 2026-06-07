@@ -761,6 +761,35 @@ class SupabaseService:
             r["created_at"] = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
         return rows
 
+    # ─── Google Play purchases (idempotency ledger) ───
+
+    async def record_play_purchase(
+        self, purchase_token: str, user_id: str, product_id: str, credits: int,
+    ) -> bool:
+        """Insert the purchase token; return False if it was already recorded.
+        The PK on purchase_token also guards against a concurrent double-insert."""
+        self._ensure_session()
+        existing = (
+            self.supabase_client.table("play_purchases")
+            .select("purchase_token")
+            .eq("purchase_token", purchase_token)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return False
+        try:
+            self.supabase_client.table("play_purchases").insert({
+                "purchase_token": purchase_token,
+                "user_id": user_id,
+                "product_id": product_id,
+                "credits": credits,
+            }).execute()
+        except Exception:
+            # Lost a race to another verify of the same token → already granted.
+            return False
+        return True
+
     # ─── Storage ───
 
     async def upload_image(self, path: str, content: bytes) -> None:

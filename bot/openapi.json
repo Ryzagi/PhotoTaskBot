@@ -376,6 +376,47 @@
         "title": "MeResponse",
         "type": "object"
       },
+      "PlayVerifyRequest": {
+        "description": "Sent by the Android app after a successful Play Billing purchase.",
+        "properties": {
+          "product_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Product Id",
+            "type": "string"
+          },
+          "purchase_token": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Purchase Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "purchase_token"
+        ],
+        "title": "PlayVerifyRequest",
+        "type": "object"
+      },
+      "PlayVerifyResponse": {
+        "properties": {
+          "granted": {
+            "title": "Granted",
+            "type": "integer"
+          },
+          "subscription_limit": {
+            "title": "Subscription Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "granted",
+          "subscription_limit"
+        ],
+        "title": "PlayVerifyResponse",
+        "type": "object"
+      },
       "Problem": {
         "properties": {
           "problem": {
@@ -997,6 +1038,48 @@
         "summary": "Link Start",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/billing/google/verify": {
+      "post": {
+        "description": "Verify a Play purchase token server-side and grant credits (idempotent).",
+        "operationId": "verify_google_purchase_v1_billing_google_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayVerifyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Google Purchase",
+        "tags": [
+          "billing"
         ]
       }
     },

@@ -21,9 +21,25 @@ from bot.push.service import PushService
 from bot.services.album_service import AlbumService
 from bot.services.billing_service import BillingService
 from bot.services.device_service import DeviceService
+from bot.services.play_billing import PlayBillingService
 from bot.services.task_service import TaskService
 from bot.services.user_service import UserService
 from bot.supabase_service import SupabaseService
+
+
+def _play_service_account() -> dict | None:
+    """Service-account JSON for the Play Developer API. Accepts raw JSON or base64."""
+    import base64
+    import json
+
+    raw = os.environ.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        decoded = raw if raw.startswith("{") else base64.b64decode(raw).decode()
+        return json.loads(decoded)
+    except Exception:
+        return None
 
 
 @lru_cache(maxsize=1)
@@ -57,6 +73,16 @@ def get_push() -> PushService:
 
 def get_billing() -> BillingService:
     return BillingService(db=get_db())
+
+
+@lru_cache(maxsize=1)
+def get_play_billing() -> PlayBillingService:
+    return PlayBillingService(
+        db=get_db(),
+        billing=get_billing(),
+        package_name=os.environ.get("GOOGLE_PLAY_PACKAGE_NAME", ""),
+        sa_info=_play_service_account(),
+    )
 
 
 def get_user_service() -> UserService:
