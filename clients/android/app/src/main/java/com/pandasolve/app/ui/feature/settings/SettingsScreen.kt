@@ -55,6 +55,7 @@ fun ProfileScreen(
     val t = LocalStrings.current
     val s by viewModel.state.collectAsState()
     var showRename by remember { mutableStateOf(false) }
+    var showTopUp by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.refresh() }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
@@ -104,7 +105,7 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(18.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row2("🎋", c.mintSoft, t.rowTopUp, t.rowTopUpHint, t.rowTopUpTrail, c.inkSoft)
+                Row2("🎋", c.mintSoft, t.rowTopUp, t.rowTopUpHint, t.rowTopUpTrail, c.inkSoft, onClick = { showTopUp = true })
                 Row2("✈️", c.skySoft, t.rowTelegram, null,
                     if (s.telegramLinked) t.rowTelegramLinked else t.rowTelegramUnlinked,
                     if (s.telegramLinked) c.mintDeep else c.inkSoft)
@@ -141,6 +142,13 @@ fun ProfileScreen(
         }
 
         CuteBottomBar(CuteTab.Profile, onHome = onHome, onCamera = onCamera, onProfile = {}, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+
+    if (showTopUp) {
+        com.pandasolve.app.ui.feature.billing.TopUpSheet(
+            onDismiss = { showTopUp = false },
+            onPurchased = { viewModel.refresh() },
+        )
     }
 
     if (showRename) {

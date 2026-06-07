@@ -83,6 +83,7 @@ data class Strings(
     val signinButton: String,
     val orDivider: String,
     val signinTerms: String,
+    val topUpUnavailable: String,
 )
 
 val RuStrings = Strings(
@@ -151,6 +152,7 @@ val RuStrings = Strings(
     signinButton = "Войти 🚀",
     orDivider = "ИЛИ",
     signinTerms = "Войдя, ты соглашаешься с правилами и конфиденциальностью.",
+    topUpUnavailable = "Пакеты пока недоступны — попробуй позже.",
 )
 
 val EnStrings = Strings(
@@ -219,6 +221,7 @@ val EnStrings = Strings(
     signinButton = "Sign in 🚀",
     orDivider = "OR",
     signinTerms = "By signing in you agree to the terms and privacy policy.",
+    topUpUnavailable = "Packs unavailable right now — try later.",
 )
 
 /** Map a backend `language_code` (e.g. "ru", "en", "en-US") to a string table. */

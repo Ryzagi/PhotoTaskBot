@@ -9,6 +9,8 @@ import com.pandasolve.app.domain.model.ChatSendRequest
 import com.pandasolve.app.domain.model.ChatThread
 import com.pandasolve.app.domain.model.LinkStartResponse
 import com.pandasolve.app.domain.model.Me
+import com.pandasolve.app.domain.model.PlayVerifyRequest
+import com.pandasolve.app.domain.model.PlayVerifyResponse
 import com.pandasolve.app.domain.model.RegisterDeviceRequest
 import com.pandasolve.app.domain.model.RegisteredDevice
 import com.pandasolve.app.domain.model.TaskCreateText
@@ -43,6 +45,9 @@ interface PandaApiService {
 
     @POST("/v1/me")
     suspend fun updateMe(@Body body: UpdateMeRequest): Me
+
+    @POST("/v1/billing/google/verify")
+    suspend fun verifyPlayPurchase(@Body body: PlayVerifyRequest): PlayVerifyResponse
 
     @POST("/v1/auth/link/start")
     suspend fun startLink(): LinkStartResponse

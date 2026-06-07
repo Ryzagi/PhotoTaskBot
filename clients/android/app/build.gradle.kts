@@ -91,8 +91,10 @@ android {
         release {
             // Signed only when the RELEASE_* props are present; otherwise unsigned.
             signingConfig = signingConfigs.findByName("release")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 disabled for now so internal-testing AABs build without keep-rule
+            // tuning. proguard-rules.pro is staged for re-enabling before public launch.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {

@@ -134,4 +134,16 @@ data class ChatThread(val messages: List<ChatMessage>, val remaining: Int = 0)
 data class ChatSendRequest(val message: String)
 
 @Serializable
+data class PlayVerifyRequest(
+    @SerialName("product_id") val productId: String,
+    @SerialName("purchase_token") val purchaseToken: String,
+)
+
+@Serializable
+data class PlayVerifyResponse(
+    val granted: Int,
+    @SerialName("subscription_limit") val subscriptionLimit: Int,
+)
+
+@Serializable
 data class TaskUpdateRequest(val title: String)
