@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -70,6 +71,7 @@ fun HomeScreen(
     var actionCard by remember { mutableStateOf<SampleThread?>(null) }   // long-pressed task
     var renameCard by remember { mutableStateOf<SampleThread?>(null) }
     val dayOpen = remember { mutableStateMapOf<String, Boolean>() }   // date → expanded
+    var showTopUp by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         LazyColumn(
@@ -82,8 +84,19 @@ fun HomeScreen(
                     Panda(Modifier.size(40.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.inkSoft)
-                        Text(if (s.name.isNotBlank()) s.name else "🐼", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 19.sp, color = c.ink)
+                        Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.inkSoft)
+                        // name with a hand-swiped marker highlight, like in a real notebook
+                        Box {
+                            Box(
+                                Modifier.matchParentSize().padding(top = 11.dp, bottom = 1.dp).rotate(-1.5f)
+                                    .clip(RoundedCornerShape(5.dp)).background(c.butter.copy(alpha = 0.45f)),
+                            )
+                            Text(
+                                if (s.name.isNotBlank()) s.name else "🐼",
+                                fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 22.sp, color = c.ink,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                            )
+                        }
                     }
                     if (s.streak > 0) Pill("🔥 ${s.streak} ${t.daysShort}", c.butterSoft, c.butterDeep, c.butterShadow)
                 }
@@ -92,29 +105,40 @@ fun HomeScreen(
 
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
-                        .background(Brush.linearGradient(listOf(c.mintSoft, Color.White)))
+                        .background(Brush.linearGradient(listOf(c.mintSoft, c.card)))
                         .border(2.dp, c.mint, RoundedCornerShape(28.dp))
                         .padding(16.dp),
                 ) {
-                    Text(t.bambooToday, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.bambooToday, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
+                        Spacer(Modifier.weight(1f))
+                        // ＋ opens the Play top-up sheet
+                        Box(
+                            Modifier.clip(RoundedCornerShape(999.dp)).background(c.mint)
+                                .clickable { showTopUp = true }.padding(horizontal = 12.dp, vertical = 4.dp),
+                        ) { Text("＋", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 14.sp, color = Color.White) }
+                    }
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text("${s.daily}", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 44.sp, color = c.ink)
+                        // total available = daily + purchased reserve (fits any pack size)
+                        Text("${s.daily + s.subscription}", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 44.sp, color = c.ink)
                         Spacer(Modifier.width(8.dp))
                         Text(t.solutions, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.inkSoft, modifier = Modifier.padding(bottom = 12.dp))
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val filled = s.daily.coerceIn(0, 5)
-                        repeat(filled) { Leaf(c.mint, c.mintShadow); Spacer(Modifier.width(6.dp)) }
-                        repeat(5 - filled) { Leaf(c.line, Color(0xFFE0D3BF)); Spacer(Modifier.width(6.dp)) }
-                        // balance can exceed 5 (raised daily limit) — show +N, not 20 leaves
+                        repeat(filled) { Leaf(c.mint, c.mintShadow); Spacer(Modifier.width(5.dp)) }
+                        repeat(5 - filled) { Leaf(c.paper2, c.line); Spacer(Modifier.width(5.dp)) }
+                        // daily can exceed 5 (raised limit) — show +N, not 20 leaves
                         if (s.daily > 5) Box(
                             Modifier.clip(RoundedCornerShape(999.dp)).background(c.mintSoft).padding(horizontal = 8.dp, vertical = 3.dp),
                         ) { Text("+${s.daily - 5}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep) }
                         Spacer(Modifier.weight(1f))
+                        // purchased reserve (no stars — Play packs now)
                         if (s.subscription > 0) Box(
-                            Modifier.clip(RoundedCornerShape(999.dp)).background(c.butterSoft).padding(horizontal = 10.dp, vertical = 5.dp),
-                        ) { Text("+${s.subscription} ⭐ ${t.donate}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = c.butterDeep) }
+                            Modifier.clip(RoundedCornerShape(999.dp)).background(c.butterSoft)
+                                .clickable { showTopUp = true }.padding(horizontal = 10.dp, vertical = 5.dp),
+                        ) { Text("🎋 ${s.subscription}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = c.butterDeep) }
                     }
                 }
 
@@ -193,6 +217,13 @@ fun HomeScreen(
             albums = s.albums.map { AlbumOption(it.id, it.name, it.emoji ?: "📚") },
             onDismiss = { assignTaskId = null },
             onPick = { album -> viewModel.assignAlbum(tid, album?.id); assignTaskId = null },
+        )
+    }
+    // ＋ on the bamboo card → Play top-up
+    if (showTopUp) {
+        com.pandasolve.app.ui.feature.billing.TopUpSheet(
+            onDismiss = { showTopUp = false },
+            onPurchased = { viewModel.refresh() },
         )
     }
     // ＋ → create album
@@ -280,8 +311,9 @@ private fun prettyDate(iso: String, en: Boolean): String {
 
 @Composable
 private fun Leaf(face: Color, shadow: Color) {
-    Box(Modifier.size(22.dp).clip(RoundedCornerShape(8.dp, 8.dp, 8.dp, 2.dp)).background(shadow)) {
-        Box(Modifier.fillMaxWidth().padding(bottom = 2.dp).height(20.dp).clip(RoundedCornerShape(8.dp, 8.dp, 8.dp, 2.dp)).background(face))
+    // 18dp keeps 5 leaves + overflow pill + reserve chip on one row on narrow phones
+    Box(Modifier.size(18.dp).clip(RoundedCornerShape(7.dp, 7.dp, 7.dp, 2.dp)).background(shadow)) {
+        Box(Modifier.fillMaxWidth().padding(bottom = 2.dp).height(16.dp).clip(RoundedCornerShape(7.dp, 7.dp, 7.dp, 2.dp)).background(face))
     }
 }
 

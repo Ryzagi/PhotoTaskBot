@@ -493,3 +493,40 @@ features, and a few backend pieces. Order/grouping at the end.
   `cameraControl.setZoomRatio(current * zoom)` clamped to the camera's min/max zoom (stock-camera feel).
 
 All three: client-only, build green. `SolveScreen.kt`.
+
+---
+
+# Round 4 — Google Play top-up era (recorded 2026-06-07) — ALL DONE (pending device re-test)
+
+R4-0 TopUpSheet+BillingManager pre-existed; R4-1 copy de-starred/de-telegrammed; R4-2+R4-7
+bamboo card redesigned (total = daily+reserve, 🎋 chip, ＋ → top-up, Home hosts the sheet);
+R4-3 chat past 3 free now spends 1 bamboo (billing.reserve, refund on LLM fail, 402
+out_of_quota → client CTA + sheet; send stays enabled with a '1 вопрос = 1 🎋' hint);
+R4-4 \dfrac/\tfrac/\cfrac + \iff/\land/\lor/… added to latexToUnicode; R4-5 Telegram row
+hidden; R4-6 achievements (5, from real stats) tappable → progress dialog + top-up CTA.
+Backend: 39 tests + ruff + openapi green. NEEDS backend redeploy for R4-3.
+
+Context: Play Billing is live-ish (backend verify endpoint done; products bamboo_20/50/100
+being created in Play Console). The app must switch its monetization UX from Telegram/Stars
+to Play top-ups.
+
+## R4-0. Play top-up sheet (foundation — others depend on it)
+- BillingManager (billing-ktx 7.1.1, dep already added): connect → queryProductDetails for
+  bamboo_20/50/100 → launchBillingFlow → on purchase POST token to /v1/billing/google/verify
+  → consume → refresh balance. A cute Top-up sheet listing the packs with Play prices.
+  Entry points: Profile "Пополнить бамбук" row, bamboo card ＋, achievements dialog, chat CTA.
+
+## R4-1. Profile: top-up row → Play sheet; drop "телеграм →" + "5⭐=1" copy.
+## R4-2. Remove ⭐ stars (Home "+N ⭐ донат" pill → "🎋 N").
+## R4-3. Chat gating: 3 free messages per task, then each reply costs 1 bamboo
+- Backend: count user msgs in task_messages; ≥3 → billing.reserve (402 w/ code out_of_quota
+  when empty). ChatThread gains free_left. Client: show "N free left", on 402 show
+  "continue with bamboo / top up" CTA → top-up sheet.
+## R4-4. LaTeX: handle \dfrac/\tfrac/\cfrac (seen as "dfraca") + \iff ("iff") etc.
+## R4-5. Hide the Telegram row in Profile (keep code, comment out).
+## R4-6. Achievements: tappable badges → dialog with name/description/progress (from
+  solved/streak/albums stats) + top-up CTA button.
+## R4-7. Redesign the bamboo card for balances ≥20: big number = daily+subscription total,
+  leaves keep showing the daily part, subscription as a "🎋 N" chip, ＋ opens top-up.
+
+Order: R4-4 → R4-1/2/5 (quick) → R4-0 (sheet) → R4-7 → R4-6 → R4-3 (backend+client).

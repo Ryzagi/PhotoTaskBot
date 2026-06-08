@@ -159,8 +159,12 @@ class TaskService:
             return None
 
         history = await self.db.list_messages(task_id)
+        spent_bucket = None
         if _remaining(history) <= 0:
-            return history, 0   # limit reached — don't spend an LLM call
+            # Free questions used up — continue by spending one bamboo (R4-3).
+            # Raises OutOfQuota when the balance is empty → endpoint returns 402.
+            reservation = await self.billing.reserve(user_id)
+            spent_bucket = reservation.spent_from
 
         solution = task.get("solution") or {}
         sols = solution.get("solutions") or []
@@ -181,6 +185,8 @@ class TaskService:
                 message,
             )
         except Exception:
+            if spent_bucket:
+                await self.billing.refund(user_id, spent_bucket)
             reply = "Не удалось ответить — попробуй переформулировать вопрос чуть позже 🐼"
         await self.db.insert_message(task_id, user_id, "assistant", reply)
         msgs = await self.db.list_messages(task_id)

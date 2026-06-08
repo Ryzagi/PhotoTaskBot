@@ -31,6 +31,7 @@ data class TaskUiState(
     val chat: List<ChatTurn> = emptyList(),
     val sending: Boolean = false,
     val chatRemaining: Int = 3,   // free follow-up questions left
+    val needTopUp: Boolean = false,  // 402 from chat → show top-up CTA
     val live: Boolean = false,
 )
 
@@ -110,14 +111,22 @@ class TaskDetailViewModel @Inject constructor(
     }
 
     fun sendChat(taskId: String, message: String) {
-        if (taskId.isBlank() || message.isBlank() || _state.value.sending || _state.value.chatRemaining <= 0) return
+        if (taskId.isBlank() || message.isBlank() || _state.value.sending) return
         viewModelScope.launch {
             _state.update { it.copy(sending = true) }
             runCatching { taskRepo.sendChat(taskId, message.trim()) }
                 .onSuccess { thread ->
-                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining, sending = false) }
+                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining, sending = false, needTopUp = false) }
                 }
-                .onFailure { Timber.w(it, "send chat failed"); _state.update { it.copy(sending = false) } }
+                .onFailure { e ->
+                    Timber.w(e, "send chat failed")
+                    val outOfQuota = (e as? retrofit2.HttpException)?.code() == 402
+                    _state.update { it.copy(sending = false, needTopUp = outOfQuota || it.needTopUp) }
+                }
         }
+    }
+
+    fun dismissTopUp() {
+        _state.update { it.copy(needTopUp = false) }
     }
 }

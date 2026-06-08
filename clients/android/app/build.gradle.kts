@@ -35,8 +35,10 @@ android {
         targetSdk = 35
         // Each Play upload needs a unique, higher code. Bump VERSION_CODE in
         // local.properties (or set CI_BUILD_NUMBER) before each upload.
+        // Play requires a strictly higher versionCode per upload. Bump VERSION_CODE in
+        // local.properties (or pass CI_BUILD_NUMBER) for each new internal-testing upload.
         versionCode = envProp("VERSION_CODE", System.getenv("CI_BUILD_NUMBER") ?: "2").toInt()
-        versionName = "0.1.0"
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

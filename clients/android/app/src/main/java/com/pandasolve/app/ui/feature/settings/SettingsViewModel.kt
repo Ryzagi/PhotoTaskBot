@@ -7,6 +7,7 @@ import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.UserRepository
 import com.pandasolve.app.i18n.LanguageManager
 import com.pandasolve.app.push.NotifPrefs
+import com.pandasolve.app.ui.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ data class ProfileUiState(
     val albums: Int = 0,
     val streak: Int = 0,
     val language: String = "ru",
+    val theme: String = "system",
     val notifEnabled: Boolean = true,
     val live: Boolean = false,
 )
@@ -34,6 +36,7 @@ class SettingsViewModel @Inject constructor(
     private val userRepo: UserRepository,
     private val albumRepo: AlbumRepository,
     private val languageManager: LanguageManager,
+    private val themeManager: ThemeManager,
     private val notifPrefs: NotifPrefs,
     private val auth: SupabaseAuth,
 ) : ViewModel() {
@@ -44,6 +47,7 @@ class SettingsViewModel @Inject constructor(
         val email = auth.currentEmail()
         ProfileUiState(
             language = languageManager.language.value,
+            theme = themeManager.mode.value,
             notifEnabled = notifPrefs.enabled,
             email = email ?: "",
             name = m?.displayName?.takeIf { it.isNotBlank() }
@@ -69,6 +73,12 @@ class SettingsViewModel @Inject constructor(
     fun setNotifications(on: Boolean) {
         notifPrefs.enabled = on
         _state.value = _state.value.copy(notifEnabled = on)
+    }
+
+    /** Pick the theme: system | light | dark. Persists; MainActivity flips the app live. */
+    fun setTheme(mode: String) {
+        themeManager.set(mode)
+        _state.value = _state.value.copy(theme = themeManager.mode.value)
     }
 
     /** Pick a UI language: persist locally (drives LocalStrings immediately) + sync to backend. */

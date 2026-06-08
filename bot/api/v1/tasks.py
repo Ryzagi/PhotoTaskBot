@@ -130,7 +130,11 @@ async def post_chat(
     user=Depends(current_user),
     tasks_service: TaskService = Depends(get_task_service),
 ) -> ChatThread:
-    result = await tasks_service.chat(user.id, task_id, payload.message)
+    try:
+        result = await tasks_service.chat(user.id, task_id, payload.message)
+    except OutOfQuota:
+        # Free questions used and no bamboo left — the client shows the top-up sheet.
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, detail="out_of_quota") from None
     if result is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
     msgs, remaining = result

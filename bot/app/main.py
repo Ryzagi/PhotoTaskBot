@@ -42,6 +42,7 @@ app = FastAPI(
 async def http_exception_handler(_request, exc: StarletteHTTPException):
     code = {
         401: "unauthorized",
+        402: "out_of_quota",
         403: "forbidden",
         404: "not_found",
         413: "image_too_large",

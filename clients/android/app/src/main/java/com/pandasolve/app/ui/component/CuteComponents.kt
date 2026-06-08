@@ -3,6 +3,7 @@ package com.pandasolve.app.ui.component
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -20,9 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -171,7 +176,10 @@ fun CuteBottomBar(
             verticalAlignment = Alignment.Bottom,
         ) {
             NavSide(t.navHome, active == CuteTab.Home, c.mintDeep, c.mintSoft, c.inkFaint, onHome) {
-                Text("🏠", fontSize = 20.sp)
+                HouseGlyph(
+                    color = if (active == CuteTab.Home) c.mintDeep else c.inkFaint,
+                    door = if (active == CuteTab.Home) c.mintSoft else c.paper,
+                )
             }
             Spacer(Modifier.width(78.dp))
             NavSideAvatar(t.navProfile, active == CuteTab.Profile, c.mintDeep, c.mintSoft, c.inkFaint, onProfile)
@@ -180,6 +188,37 @@ fun CuteBottomBar(
         Box(Modifier.align(Alignment.TopCenter).offset(y = 6.dp)) {
             ShutterButton(onClick = onCamera)
         }
+    }
+}
+
+/** Hand-drawn doodle house (replaces the platform 🏠 emoji — consistent on every device). */
+@Composable
+private fun HouseGlyph(color: Color, door: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(22.dp)) {
+        val w = size.width
+        val h = size.height
+        // roof — chunky triangle with a flat top-cut, like a marker doodle
+        val roof = Path().apply {
+            moveTo(w * 0.50f, h * 0.02f)
+            lineTo(w * 0.98f, h * 0.46f)
+            lineTo(w * 0.02f, h * 0.46f)
+            close()
+        }
+        drawPath(roof, color)
+        // body
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(w * 0.14f, h * 0.42f),
+            size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.54f),
+            cornerRadius = CornerRadius(w * 0.14f, w * 0.14f),
+        )
+        // door (paper cut-out)
+        drawRoundRect(
+            color = door,
+            topLeft = Offset(w * 0.40f, h * 0.60f),
+            size = androidx.compose.ui.geometry.Size(w * 0.20f, h * 0.36f),
+            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+        )
     }
 }
 
@@ -196,8 +235,11 @@ private fun NavSide(
     val color = if (activeState) activeColor else idleColor
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
         Box(
-            Modifier.size(44.dp).clip(RoundedCornerShape(16.dp))
-                .background(if (activeState) activeBg else Color.Transparent),
+            Modifier.size(44.dp)
+                .rotate(if (activeState) -5f else 0f)   // active tab = tilted sticker
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (activeState) activeBg else Color.Transparent)
+                .then(if (activeState) Modifier.border(2.dp, activeColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp)) else Modifier),
             contentAlignment = Alignment.Center,
         ) { icon() }
         Spacer(Modifier.height(3.dp))
@@ -217,8 +259,11 @@ private fun NavSideAvatar(
     val color = if (activeState) activeColor else idleColor
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
         Box(
-            Modifier.size(44.dp).clip(RoundedCornerShape(16.dp))
-                .background(if (activeState) activeBg else Color.Transparent),
+            Modifier.size(44.dp)
+                .rotate(if (activeState) 5f else 0f)    // mirrored tilt on the right tab
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (activeState) activeBg else Color.Transparent)
+                .then(if (activeState) Modifier.border(2.dp, activeColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp)) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             Panda(Modifier.size(30.dp).clip(CircleShape).background(Color.White))

@@ -34,7 +34,11 @@ private val SYMBOLS = mapOf(
     "\\prod" to "∏", "\\int" to "∫", "\\oint" to "∮", "\\sqrt" to "√",
     "\\Rightarrow" to "⇒", "\\Leftarrow" to "⇐", "\\Leftrightarrow" to "⇔",
     "\\rightarrow" to "→", "\\leftarrow" to "←", "\\leftrightarrow" to "↔",
-    "\\to" to "→", "\\mapsto" to "↦", "\\implies" to "⇒",
+    "\\to" to "→", "\\mapsto" to "↦", "\\implies" to "⇒", "\\iff" to "⇔",
+    "\\Longleftrightarrow" to "⇔", "\\Longrightarrow" to "⇒",
+    "\\land" to "∧", "\\lor" to "∨", "\\neg" to "¬",
+    "\\therefore" to "∴", "\\because" to "∵",
+    "\\displaystyle" to "", "\\limits" to "",
     "\\alpha" to "α", "\\beta" to "β", "\\gamma" to "γ", "\\delta" to "δ",
     "\\varepsilon" to "ε", "\\epsilon" to "ε", "\\zeta" to "ζ", "\\eta" to "η",
     "\\theta" to "θ", "\\vartheta" to "ϑ", "\\iota" to "ι", "\\kappa" to "κ",
@@ -68,9 +72,9 @@ fun latexToUnicode(input: String): String {
     s = Regex("""\\(?:text|textbf|textit|mathbf|mathrm|mathit|boldsymbol|operatorname)\{([^{}]*)\}""")
         .replace(s) { it.groupValues[1] }
 
-    // \frac{a}{b} → (a)/(b); loop a few times for limited nesting.
+    // \frac/\dfrac/\tfrac/\cfrac{a}{b} → (a)/(b); loop a few times for limited nesting.
     repeat(4) {
-        s = Regex("""\\frac\{([^{}]*)\}\{([^{}]*)\}""")
+        s = Regex("""\\[dtc]?frac\{([^{}]*)\}\{([^{}]*)\}""")
             .replace(s) { "(${it.groupValues[1]})/(${it.groupValues[2]})" }
     }
     // \sqrt{x} → √(x)

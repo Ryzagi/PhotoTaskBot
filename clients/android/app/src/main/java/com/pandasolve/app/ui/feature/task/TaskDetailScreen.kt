@@ -50,6 +50,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
     val first = s.problems.firstOrNull()
     var showPicker by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
+    var showTopUp by remember { mutableStateOf(false) }
     val scroll = rememberScrollState()
     // Keep the newest chat visible as messages arrive / while typing.
     LaunchedEffect(s.chat.size, s.sending) { scroll.animateScrollTo(scroll.maxValue) }
@@ -136,9 +137,17 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 Spacer(Modifier.height(10.dp))
                 Text("панда печатает…", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.lavDeep)
             }
-            if (s.chatRemaining <= 0) {
+            if (s.needTopUp) {
                 Spacer(Modifier.height(10.dp))
                 Text(t.chatLimitReached, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.coralDeep)
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier.clip(RoundedCornerShape(999.dp)).background(c.mint)
+                        .clickable { showTopUp = true }.padding(horizontal = 14.dp, vertical = 7.dp),
+                ) { Text("🎋 " + t.chatTopUp, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = Color.White) }
+            } else if (s.chatRemaining <= 0) {
+                Spacer(Modifier.height(10.dp))
+                Text(t.chatPaidHint, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkFaint)
             } else if (s.chat.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(t.chatRemaining.format(s.chatRemaining), fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkFaint)
@@ -163,7 +172,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 },
             )
             Spacer(Modifier.width(8.dp))
-            val canSend = draft.isNotBlank() && !s.sending && s.chatRemaining > 0
+            val canSend = draft.isNotBlank() && !s.sending
             Box(
                 Modifier.size(40.dp).clip(CircleShape)
                     .background(Brush.linearGradient(listOf(c.coral, c.pink)))
@@ -180,6 +189,14 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             albums = s.albums,
             onDismiss = { showPicker = false },
             onPick = { album -> viewModel.assignAlbum(taskId, album); showPicker = false },
+        )
+    }
+
+    // Out-of-bamboo CTA in the chat → Play top-up.
+    if (showTopUp) {
+        com.pandasolve.app.ui.feature.billing.TopUpSheet(
+            onDismiss = { showTopUp = false },
+            onPurchased = { viewModel.dismissTopUp() },
         )
     }
 }

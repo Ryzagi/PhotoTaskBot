@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
+import com.pandasolve.app.i18n.EnStrings
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.supportedLanguages
 import com.pandasolve.app.ui.component.Candy
@@ -56,6 +58,7 @@ fun ProfileScreen(
     val s by viewModel.state.collectAsState()
     var showRename by remember { mutableStateOf(false) }
     var showTopUp by remember { mutableStateOf(false) }
+    var selAch by remember { mutableStateOf<Ach?>(null) }
     LaunchedEffect(Unit) { viewModel.refresh() }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
@@ -68,7 +71,7 @@ fun ProfileScreen(
             // hero
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(c.lavSoft, Color.White)))
+                    .background(Brush.linearGradient(listOf(c.lavSoft, c.card)))
                     .border(2.dp, c.lav, RoundedCornerShape(28.dp)).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -76,7 +79,16 @@ fun ProfileScreen(
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(s.name, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 21.sp, color = c.ink)
+                        Box {
+                            Box(
+                                Modifier.matchParentSize().padding(top = 12.dp, bottom = 1.dp).rotate(-1.5f)
+                                    .clip(RoundedCornerShape(5.dp)).background(c.butter.copy(alpha = 0.45f)),
+                            )
+                            Text(
+                                s.name, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 22.sp, color = c.ink,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                            )
+                        }
                         Spacer(Modifier.width(6.dp))
                         Text("✏️", fontSize = 14.sp, modifier = Modifier.clip(CircleShape).clickable { showRename = true }.padding(2.dp))
                     }
@@ -98,17 +110,32 @@ fun ProfileScreen(
             Spacer(Modifier.height(16.dp))
             Text(t.achievements, fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 14.sp, color = c.ink)
             Spacer(Modifier.height(9.dp))
+            val isEn = t == EnStrings
+            val achs = listOf(
+                Ach("🌱", c.mintSoft, if (isEn) "First solve" else "Первое решение",
+                    if (isEn) "Solve your first task" else "Реши свою первую задачу", s.solved, 1),
+                Ach("🔥", c.butterSoft, if (isEn) "3-day streak" else "Серия 3 дня",
+                    if (isEn) "Solve tasks 3 days in a row" else "Решай задачи 3 дня подряд", s.streak, 3),
+                Ach("🦉", c.skySoft, if (isEn) "25 solutions" else "25 решений",
+                    if (isEn) "Solve 25 tasks" else "Реши 25 задач", s.solved, 25),
+                Ach("🎓", c.lavSoft, if (isEn) "3 folders" else "3 папки",
+                    if (isEn) "Create 3 folders" else "Создай 3 папки", s.albums, 3),
+                Ach("💯", c.coralSoft, if (isEn) "100 solutions" else "100 решений",
+                    if (isEn) "Solve 100 tasks" else "Реши 100 задач", s.solved, 100),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Badge("🌱", c.mintSoft, false); Badge("🔥", c.butterSoft, false); Badge("💯", c.coralSoft, false)
-                Badge("🦉", c.paper2, true); Badge("🎓", c.paper2, true)
+                achs.forEach { a ->
+                    Badge(a.emoji, if (a.cur >= a.target) a.bg else c.paper2, locked = a.cur < a.target) { selAch = a }
+                }
             }
 
             Spacer(Modifier.height(18.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row2("🎋", c.mintSoft, t.rowTopUp, t.rowTopUpHint, t.rowTopUpTrail, c.inkSoft, onClick = { showTopUp = true })
-                Row2("✈️", c.skySoft, t.rowTelegram, null,
-                    if (s.telegramLinked) t.rowTelegramLinked else t.rowTelegramUnlinked,
-                    if (s.telegramLinked) c.mintDeep else c.inkSoft)
+                // Telegram linking hidden for now (R4-5) — re-enable when the link flow ships.
+                // Row2("✈️", c.skySoft, t.rowTelegram, null,
+                //     if (s.telegramLinked) t.rowTelegramLinked else t.rowTelegramUnlinked,
+                //     if (s.telegramLinked) c.mintDeep else c.inkSoft)
                 Box {
                     var langMenu by remember { mutableStateOf(false) }
                     Row2("🌍", c.lavSoft, t.rowLanguage, null,
@@ -120,6 +147,18 @@ fun ProfileScreen(
                                 text = { Text(opt.label) },
                                 onClick = { viewModel.setLanguage(opt.code); langMenu = false },
                             )
+                        }
+                    }
+                }
+                Box {
+                    var themeMenu by remember { mutableStateOf(false) }
+                    val themeLabel = when (s.theme) {
+                        "light" -> t.themeLight; "dark" -> t.themeDark; else -> t.themeSystem
+                    }
+                    Row2("🌗", c.skySoft, t.rowTheme, null, themeLabel, c.skyDeep, onClick = { themeMenu = true })
+                    DropdownMenu(expanded = themeMenu, onDismissRequest = { themeMenu = false }) {
+                        listOf("system" to t.themeSystem, "light" to t.themeLight, "dark" to t.themeDark).forEach { (mode, lbl) ->
+                            DropdownMenuItem(text = { Text(lbl) }, onClick = { viewModel.setTheme(mode); themeMenu = false })
                         }
                     }
                 }
@@ -149,6 +188,29 @@ fun ProfileScreen(
             onDismiss = { showTopUp = false },
             onPurchased = { viewModel.refresh() },
         )
+    }
+
+    // Achievement detail: description + progress + top-up CTA (R4-6).
+    selAch?.let { a ->
+        Dialog(onDismissRequest = { selAch = null }) {
+            Column(
+                Modifier.clip(RoundedCornerShape(24.dp)).background(c.paper).padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(a.emoji, fontSize = 44.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(a.title, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 18.sp, color = c.ink)
+                Spacer(Modifier.height(4.dp))
+                Text(a.desc, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = c.inkSoft)
+                Spacer(Modifier.height(10.dp))
+                Text("${a.cur.coerceAtMost(a.target)} / ${a.target}", fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 16.sp, color = c.mintDeep)
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CandyButton(t.cancel, { selAch = null }, Modifier.weight(1f), Candy.Ghost)
+                    CandyButton("🎋 " + t.chatTopUp, { selAch = null; showTopUp = true }, Modifier.weight(1f), Candy.Mint)
+                }
+            }
+        }
     }
 
     if (showRename) {
@@ -190,10 +252,14 @@ private fun Stat(v: String, k: String, color: Color, modifier: Modifier) {
     }
 }
 
+private data class Ach(
+    val emoji: String, val bg: Color, val title: String, val desc: String, val cur: Int, val target: Int,
+)
+
 @Composable
-private fun Badge(emoji: String, bg: Color, locked: Boolean) {
+private fun Badge(emoji: String, bg: Color, locked: Boolean, onClick: () -> Unit = {}) {
     Box(
-        Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(bg),
+        Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(bg).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(emoji, fontSize = 24.sp, color = if (locked) Color.Black.copy(alpha = 0.25f) else Color.Unspecified) }
 }
