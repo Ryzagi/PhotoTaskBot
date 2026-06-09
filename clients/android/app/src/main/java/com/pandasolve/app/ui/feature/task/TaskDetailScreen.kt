@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -27,11 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.AlbumOption
 import com.pandasolve.app.ui.component.AlbumPickerDialog
@@ -40,6 +47,9 @@ import com.pandasolve.app.ui.component.dotPaper
 import com.pandasolve.app.ui.theme.Baloo
 import com.pandasolve.app.ui.theme.Nunito
 import com.pandasolve.app.ui.theme.cute
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailViewModel = hiltViewModel()) {
@@ -51,6 +61,12 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
     var showPicker by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var showTopUp by remember { mutableStateOf(false) }
+    var attachUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) attachUri = uri
+    }
     val scroll = rememberScrollState()
     // Keep the newest chat visible as messages arrive / while typing.
     LaunchedEffect(s.chat.size, s.sending) { scroll.animateScrollTo(scroll.maxValue) }
@@ -130,7 +146,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 )
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    s.chat.forEach { turn -> Bubble(turn.text, me = turn.fromMe) }
+                    s.chat.forEach { turn -> Bubble(turn.text, me = turn.fromMe, imageUrl = turn.imageUrl) }
                 }
             }
             if (s.sending) {
@@ -155,31 +171,68 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
         }
 
         // chat bar (lifts above the keyboard)
-        Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(20.dp)
-                .clip(RoundedCornerShape(999.dp)).background(c.card).border(2.dp, c.line, RoundedCornerShape(999.dp))
-                .padding(start = 18.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BasicTextField(
-                value = draft, onValueChange = { draft = it }, singleLine = true,
-                cursorBrush = SolidColor(c.coralDeep),
-                textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.ink),
-                modifier = Modifier.weight(1f),
-                decorationBox = { inner ->
-                    if (draft.isEmpty()) Text("спросить ещё…", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
-                    inner()
-                },
-            )
-            Spacer(Modifier.width(8.dp))
-            val canSend = draft.isNotBlank() && !s.sending
-            Box(
-                Modifier.size(40.dp).clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(c.coral, c.pink)))
-                    .clickable(enabled = canSend) { viewModel.sendChat(taskId, draft); draft = "" },
-                contentAlignment = Alignment.Center,
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(20.dp)) {
+            // attachment preview (tap ✕ to remove)
+            attachUri?.let { uri ->
+                Row(
+                    Modifier.padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(c.card)
+                        .border(2.dp, c.line, RoundedCornerShape(16.dp)).padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AsyncImage(model = uri, contentDescription = null,
+                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+                    Spacer(Modifier.width(10.dp))
+                    Text("фото прикреплено", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.inkSoft, modifier = Modifier.weight(1f))
+                    Text("✕", fontSize = 15.sp, color = c.coralDeep, modifier = Modifier.clip(CircleShape).clickable { attachUri = null }.padding(6.dp))
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(999.dp)).background(c.card).border(2.dp, c.line, RoundedCornerShape(999.dp))
+                    .padding(start = 6.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White.copy(alpha = if (canSend) 1f else 0.5f), modifier = Modifier.size(17.dp))
+                // attach a photo as context
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).clickable {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    contentAlignment = Alignment.Center,
+                ) { Text("📎", fontSize = 18.sp) }
+                Spacer(Modifier.width(4.dp))
+                BasicTextField(
+                    value = draft, onValueChange = { draft = it }, singleLine = true,
+                    cursorBrush = SolidColor(c.coralDeep),
+                    textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.ink),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { inner ->
+                        if (draft.isEmpty()) Text(if (attachUri != null) "подпись к фото…" else "спросить ещё…", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
+                        inner()
+                    },
+                )
+                Spacer(Modifier.width(8.dp))
+                val canSend = (draft.isNotBlank() || attachUri != null) && !s.sending
+                Box(
+                    Modifier.size(40.dp).clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(c.coral, c.pink)))
+                        .clickable(enabled = canSend) {
+                            val uri = attachUri
+                            val caption = draft
+                            draft = ""; attachUri = null
+                            if (uri != null) {
+                                scope.launch {
+                                    val bytes = withContext(Dispatchers.IO) {
+                                        runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+                                    }
+                                    if (bytes != null) viewModel.sendChatImage(taskId, bytes, caption)
+                                }
+                            } else {
+                                viewModel.sendChat(taskId, caption)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White.copy(alpha = if (canSend) 1f else 0.5f), modifier = Modifier.size(17.dp))
+                }
             }
         }
     }
@@ -223,11 +276,11 @@ private fun Step(n: Int, text: String) {
 }
 
 @Composable
-private fun Bubble(text: String, me: Boolean) {
+private fun Bubble(text: String, me: Boolean, imageUrl: String? = null) {
     val c = cute
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (me) Arrangement.End else Arrangement.Start, verticalAlignment = Alignment.Bottom) {
         if (!me) { Panda(Modifier.size(28.dp)); Spacer(Modifier.width(6.dp)) }
-        Box(
+        Column(
             Modifier.widthIn(max = 250.dp).clip(
                 RoundedCornerShape(
                     topStart = 18.dp, topEnd = 18.dp,
@@ -235,9 +288,22 @@ private fun Bubble(text: String, me: Boolean) {
                 ),
             ).background(if (me) c.skySoft else c.card)
                 .then(if (me) Modifier else Modifier.border(2.dp, c.line, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 5.dp, bottomEnd = 18.dp)))
-                .padding(horizontal = 15.dp, vertical = 11.dp),
+                .padding(if (imageUrl != null) 6.dp else 0.dp),
         ) {
-            Text(text, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.5.sp, color = if (me) c.skyDeep else c.ink, lineHeight = 19.sp)
+            if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl, contentDescription = null,
+                    modifier = Modifier.widthIn(max = 230.dp).heightIn(max = 230.dp).clip(RoundedCornerShape(13.dp)),
+                    contentScale = ContentScale.FillWidth,
+                )
+            }
+            if (text.isNotBlank()) {
+                Text(
+                    text, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.5.sp,
+                    color = if (me) c.skyDeep else c.ink, lineHeight = 19.sp,
+                    modifier = Modifier.padding(horizontal = if (imageUrl != null) 9.dp else 15.dp, vertical = if (imageUrl != null) 7.dp else 11.dp),
+                )
+            }
         }
     }
 }

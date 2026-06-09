@@ -41,6 +41,7 @@ import com.pandasolve.app.ui.component.AlbumPickerDialog
 import com.pandasolve.app.ui.component.Candy
 import com.pandasolve.app.ui.component.CandyButton
 import com.pandasolve.app.ui.component.CuteBottomBar
+import com.pandasolve.app.ui.component.DayChevron
 import com.pandasolve.app.ui.component.CuteTab
 import com.pandasolve.app.ui.component.Panda
 import com.pandasolve.app.ui.component.ThreadCard
@@ -172,7 +173,7 @@ fun HomeScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(prettyDate(day.date, t == EnStrings), fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
                             Spacer(Modifier.weight(1f))
-                            Text(if (isOpen) "▾" else "▸", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 14.sp, color = c.inkFaint)
+                            DayChevron(open = isOpen, color = c.mintDeep, bg = c.mintSoft)
                         }
                         if (isOpen) {
                             Spacer(Modifier.height(10.dp))

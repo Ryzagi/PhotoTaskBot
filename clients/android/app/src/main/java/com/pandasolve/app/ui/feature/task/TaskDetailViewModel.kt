@@ -19,7 +19,7 @@ import timber.log.Timber
 
 data class ProblemUi(val problem: String, val steps: List<String>, val answer: String)
 
-data class ChatTurn(val fromMe: Boolean, val text: String)
+data class ChatTurn(val fromMe: Boolean, val text: String, val imageUrl: String? = null)
 
 data class TaskUiState(
     val status: String = "pending",      // pending | done | failed
@@ -62,7 +62,7 @@ class TaskDetailViewModel @Inject constructor(
             }
             launch {
                 runCatching { taskRepo.chatHistory(taskId) }
-                    .onSuccess { thread -> _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining) } }
+                    .onSuccess { thread -> _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content), m.imageUrl) }, chatRemaining = thread.remaining) } }
                     .onFailure { Timber.w(it, "chat history load failed") }
             }
             // Task — priority; poll while pending.
@@ -116,12 +116,28 @@ class TaskDetailViewModel @Inject constructor(
             _state.update { it.copy(sending = true) }
             runCatching { taskRepo.sendChat(taskId, message.trim()) }
                 .onSuccess { thread ->
-                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content)) }, chatRemaining = thread.remaining, sending = false, needTopUp = false) }
+                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content), m.imageUrl) }, chatRemaining = thread.remaining, sending = false, needTopUp = false) }
                 }
                 .onFailure { e ->
                     Timber.w(e, "send chat failed")
                     val outOfQuota = (e as? retrofit2.HttpException)?.code() == 402
                     _state.update { it.copy(sending = false, needTopUp = outOfQuota || it.needTopUp) }
+                }
+        }
+    }
+
+    fun sendChatImage(taskId: String, bytes: ByteArray, caption: String) {
+        if (taskId.isBlank() || bytes.isEmpty() || _state.value.sending) return
+        viewModelScope.launch {
+            _state.update { it.copy(sending = true) }
+            runCatching { taskRepo.sendChatImage(taskId, bytes, caption.trim()) }
+                .onSuccess { thread ->
+                    _state.update { it.copy(chat = thread.messages.map { m -> ChatTurn(m.role == "user", latexToUnicode(m.content), m.imageUrl) }, chatRemaining = thread.remaining, sending = false, needTopUp = false) }
+                }
+                .onFailure { e ->
+                    Timber.w(e, "send chat image failed")
+                    val oq = (e as? retrofit2.HttpException)?.code() == 402
+                    _state.update { it.copy(sending = false, needTopUp = oq || it.needTopUp) }
                 }
         }
     }

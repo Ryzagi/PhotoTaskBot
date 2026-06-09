@@ -125,6 +125,7 @@ data class ChatMessage(
     val role: String,                               // "user" | "assistant"
     val content: String,
     @SerialName("created_at") val createdAt: String,
+    @SerialName("image_url") val imageUrl: String? = null,
 )
 
 @Serializable

@@ -42,6 +42,15 @@ class TaskRepository @Inject constructor(
 
     suspend fun chatHistory(taskId: String): ChatThread = api.getChat(taskId)
 
+    suspend fun sendChatImage(taskId: String, bytes: ByteArray, caption: String): ChatThread {
+        val filePart = MultipartBody.Part.createFormData(
+            name = "file", filename = "chat.jpg",
+            body = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull()),
+        )
+        val msgPart = caption.toRequestBody("text/plain".toMediaTypeOrNull())
+        return api.postChatImage(taskId, filePart, msgPart)
+    }
+
     suspend fun sendChat(taskId: String, message: String): ChatThread =
         api.postChat(taskId, ChatSendRequest(message))
 

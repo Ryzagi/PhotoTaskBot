@@ -143,7 +143,7 @@ fun CameraScreen(
                     ) {
                         Column(
                             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFFFFFDF8)).padding(18.dp),
+                                .background(c.card).padding(18.dp),
                         ) {
                             Text("УСЛОВИЕ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
                             Spacer(Modifier.height(8.dp))

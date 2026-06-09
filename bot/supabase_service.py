@@ -738,20 +738,23 @@ class SupabaseService:
 
     # ─── Task chat (R2-2) ───
 
-    async def insert_message(self, task_id: str, user_id: str, role: str, content: str) -> None:
+    async def insert_message(
+        self, task_id: str, user_id: str, role: str, content: str, image_path: str | None = None,
+    ) -> None:
         self._ensure_session()
         self.supabase_client.table("task_messages").insert({
             "task_id": int(task_id),
             "user_id": user_id,
             "role": role,
             "content": content,
+            "image_path": image_path,
         }).execute()
 
     async def list_messages(self, task_id: str) -> list[dict]:
         self._ensure_session()
         resp = (
             self.supabase_client.table("task_messages")
-            .select("role, content, created_at")
+            .select("role, content, created_at, image_path")
             .eq("task_id", task_id)
             .order("created_at", desc=False)
             .execute()

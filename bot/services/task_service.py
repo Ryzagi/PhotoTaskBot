@@ -145,15 +145,32 @@ class TaskService:
         await self.db.update_task_title(user_id, task_id, title.strip())
         return await self.get(user_id, task_id)
 
+    async def _enrich_messages(self, msgs: list[dict]) -> list[dict]:
+        """Attach a signed image_url to any message that has a stored image_path."""
+        for m in msgs:
+            if m.get("image_path"):
+                m["image_url"] = await self.db.signed_url(m["image_path"], ttl=86400)
+        return msgs
+
     async def chat_history(self, user_id: str, task_id: str) -> tuple[list[dict], int] | None:
         if await self._owned_task(user_id, task_id) is None:
             return None
         msgs = await self.db.list_messages(task_id)
-        return msgs, _remaining(msgs)
+        return await self._enrich_messages(msgs), _remaining(msgs)
 
     async def chat(self, user_id: str, task_id: str, message: str) -> tuple[list[dict], int] | None:
-        """Follow-up Q&A: store the question, answer it with the task as context, store the reply.
-        Capped at FREE_CHAT_LIMIT questions per task; beyond that the client prompts a top-up."""
+        return await self._chat(user_id, task_id, message)
+
+    async def chat_image(
+        self, user_id: str, task_id: str, image_bytes: bytes, caption: str,
+    ) -> tuple[list[dict], int] | None:
+        return await self._chat(user_id, task_id, caption, image_bytes=image_bytes)
+
+    async def _chat(
+        self, user_id: str, task_id: str, message: str, image_bytes: bytes | None = None,
+    ) -> tuple[list[dict], int] | None:
+        """Follow-up Q&A (optionally with an attached image as vision context).
+        Capped at FREE_CHAT_LIMIT questions per task; beyond that a bamboo is spent."""
         task = await self._owned_task(user_id, task_id)
         if task is None:
             return None
@@ -177,20 +194,26 @@ class TaskService:
                 parts.append(blk.get("content", ""))
         solution_text = "\n".join(parts)
 
-        await self.db.insert_message(task_id, user_id, "user", message)
+        image_path = None
+        if image_bytes is not None:
+            stamp = f"{datetime.now(UTC):%Y%m%d%H%M%S%f}"
+            image_path = f"chat_images/{user_id}/{task_id}/{stamp}.jpg"
+            await self.db.upload_image(image_path, image_bytes)
+
+        await self.db.insert_message(task_id, user_id, "user", message, image_path=image_path)
+        hist = [{"role": m["role"], "content": m["content"]} for m in history]
         try:
-            reply = await self.gpt.generate_chat_reply(
-                problem, solution_text,
-                [{"role": m["role"], "content": m["content"]} for m in history],
-                message,
-            )
+            if image_bytes is not None:
+                reply = await self.gpt.generate_chat_reply_image(problem, solution_text, hist, image_bytes, message)
+            else:
+                reply = await self.gpt.generate_chat_reply(problem, solution_text, hist, message)
         except Exception:
             if spent_bucket:
                 await self.billing.refund(user_id, spent_bucket)
             reply = "Не удалось ответить — попробуй переформулировать вопрос чуть позже 🐼"
         await self.db.insert_message(task_id, user_id, "assistant", reply)
         msgs = await self.db.list_messages(task_id)
-        return msgs, _remaining(msgs)
+        return await self._enrich_messages(msgs), _remaining(msgs)
 
     async def list(self, user_id: str, limit: int, before: datetime | None, album_id: str | None = None, q: str | None = None) -> TaskList:
         rows = await self.db.list_tasks(user_id, limit=limit, before=before, album_id=album_id, q=q)

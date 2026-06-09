@@ -80,6 +80,14 @@ interface PandaApiService {
     @POST("/v1/tasks/{task_id}/chat")
     suspend fun postChat(@Path("task_id") taskId: String, @Body body: ChatSendRequest): ChatThread
 
+    @Multipart
+    @POST("/v1/tasks/{task_id}/chat/image")
+    suspend fun postChatImage(
+        @Path("task_id") taskId: String,
+        @Part file: okhttp3.MultipartBody.Part,
+        @Part("message") message: okhttp3.RequestBody,
+    ): ChatThread
+
     @GET("/v1/tasks")
     suspend fun listTasks(
         @Query("limit") limit: Int = 20,

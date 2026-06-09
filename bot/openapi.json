@@ -212,6 +212,25 @@
         "title": "Body_create_image_task_v1_tasks_post",
         "type": "object"
       },
+      "Body_post_chat_image_v1_tasks__task_id__chat_image_post": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_post_chat_image_v1_tasks__task_id__chat_image_post",
+        "type": "object"
+      },
       "ChatMessage": {
         "properties": {
           "content": {
@@ -222,6 +241,17 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "role": {
             "enum": [
@@ -1649,6 +1679,59 @@
           }
         },
         "summary": "Post Chat",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/v1/tasks/{task_id}/chat/image": {
+      "post": {
+        "description": "Follow-up question with an attached photo (vision context) + optional caption.",
+        "operationId": "post_chat_image_v1_tasks__task_id__chat_image_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_post_chat_image_v1_tasks__task_id__chat_image_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatThread"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Chat Image",
         "tags": [
           "tasks"
         ]

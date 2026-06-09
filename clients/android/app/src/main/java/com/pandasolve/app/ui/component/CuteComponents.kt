@@ -1,6 +1,7 @@
 package com.pandasolve.app.ui.component
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,11 +26,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -105,7 +107,7 @@ fun CandyButton(
                     enabled = enabled,
                     onClick = onClick,
                 )
-                .padding(vertical = 15.dp, horizontal = 18.dp),
+                .padding(vertical = 15.dp, horizontal = 14.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -115,6 +117,8 @@ fun CandyButton(
                 fontWeight = FontWeight.W700,
                 fontSize = 17.sp,
                 textAlign = TextAlign.Center,
+                maxLines = 1,          // keep side-by-side buttons the same height
+                softWrap = false,
             )
         }
     }
@@ -191,6 +195,27 @@ fun CuteBottomBar(
     }
 }
 
+/**
+ * Fresh collapse toggle: a soft circular chip with a hand-drawn chevron that
+ * smoothly rotates — pointing down when open, swinging to the right when closed.
+ */
+@Composable
+fun DayChevron(open: Boolean, color: Color, bg: Color, modifier: Modifier = Modifier) {
+    val angle by animateFloatAsState(if (open) 0f else -90f, label = "chevron")
+    Box(
+        modifier.size(24.dp).clip(CircleShape).background(bg),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(11.dp).rotate(angle)) {
+            val w = size.width
+            val h = size.height
+            val sw = 2.2.dp.toPx()
+            drawLine(color, Offset(w * 0.22f, h * 0.38f), Offset(w * 0.5f, h * 0.66f), sw, StrokeCap.Round)
+            drawLine(color, Offset(w * 0.78f, h * 0.38f), Offset(w * 0.5f, h * 0.66f), sw, StrokeCap.Round)
+        }
+    }
+}
+
 /** Hand-drawn doodle house (replaces the platform 🏠 emoji — consistent on every device). */
 @Composable
 private fun HouseGlyph(color: Color, door: Color, modifier: Modifier = Modifier) {
@@ -236,7 +261,6 @@ private fun NavSide(
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
         Box(
             Modifier.size(44.dp)
-                .rotate(if (activeState) -5f else 0f)   // active tab = tilted sticker
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (activeState) activeBg else Color.Transparent)
                 .then(if (activeState) Modifier.border(2.dp, activeColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp)) else Modifier),
@@ -260,7 +284,6 @@ private fun NavSideAvatar(
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable(onClick = onClick)) {
         Box(
             Modifier.size(44.dp)
-                .rotate(if (activeState) 5f else 0f)    // mirrored tilt on the right tab
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (activeState) activeBg else Color.Transparent)
                 .then(if (activeState) Modifier.border(2.dp, activeColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp)) else Modifier),

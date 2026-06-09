@@ -139,3 +139,23 @@ async def post_chat(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
     msgs, remaining = result
     return ChatThread(messages=msgs, remaining=remaining)
+
+
+@router.post("/tasks/{task_id}/chat/image", response_model=ChatThread)
+async def post_chat_image(
+    task_id: str,
+    file: UploadFile = File(...),
+    message: str = Form(""),
+    user=Depends(current_user),
+    tasks_service: TaskService = Depends(get_task_service),
+) -> ChatThread:
+    """Follow-up question with an attached photo (vision context) + optional caption."""
+    image_bytes = await file.read()
+    try:
+        result = await tasks_service.chat_image(user.id, task_id, image_bytes, message)
+    except OutOfQuota:
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, detail="out_of_quota") from None
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="task not found")
+    msgs, remaining = result
+    return ChatThread(messages=msgs, remaining=remaining)

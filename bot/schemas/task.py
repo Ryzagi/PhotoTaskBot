@@ -56,6 +56,7 @@ class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime
+    image_url: str | None = None      # signed URL of an attached photo, if any
 
 
 class ChatRequest(BaseModel):
