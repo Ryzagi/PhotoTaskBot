@@ -23,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -84,19 +83,8 @@ fun HomeScreen(
                     Panda(Modifier.size(40.dp))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 17.sp, color = c.inkSoft)
-                        // name with a hand-swiped marker highlight, like in a real notebook
-                        Box {
-                            Box(
-                                Modifier.matchParentSize().padding(top = 11.dp, bottom = 1.dp).rotate(-1.5f)
-                                    .clip(RoundedCornerShape(5.dp)).background(c.butter.copy(alpha = 0.45f)),
-                            )
-                            Text(
-                                if (s.name.isNotBlank()) s.name else "🐼",
-                                fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 22.sp, color = c.ink,
-                                modifier = Modifier.padding(horizontal = 4.dp),
-                            )
-                        }
+                        Text(t.welcomeBack, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 18.sp, color = c.inkSoft)
+                        Text(if (s.name.isNotBlank()) s.name else "🐼", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 19.sp, color = c.ink)
                     }
                     if (s.streak > 0) Pill("🔥 ${s.streak} ${t.daysShort}", c.butterSoft, c.butterDeep, c.butterShadow)
                 }
