@@ -129,6 +129,8 @@ fun HomeScreen(
                                 .clickable { showTopUp = true }.padding(horizontal = 10.dp, vertical = 5.dp),
                         ) { Text("🎋 ${s.subscription}", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = c.butterDeep) }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(t.dailyFreeHint, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 11.sp, color = c.inkSoft)
                 }
 
                 Spacer(Modifier.height(12.dp))

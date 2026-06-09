@@ -16,6 +16,7 @@ data class Strings(
     // home
     val welcomeBack: String,
     val bambooToday: String,
+    val dailyFreeHint: String,
     val solutions: String,
     val donate: String,
     val recent: String,
@@ -88,6 +89,7 @@ data class Strings(
     val signinButton: String,
     val orDivider: String,
     val signinTerms: String,
+    val privacyPolicy: String,
     val topUpUnavailable: String,
 )
 
@@ -96,6 +98,7 @@ val RuStrings = Strings(
     navProfile = "профиль",
     welcomeBack = "с возвращением,",
     bambooToday = "БАМБУК НА СЕГОДНЯ",
+    dailyFreeHint = "🎋 3 решения бесплатно каждый день",
     solutions = "решения",
     donate = "донат",
     recent = "Решения",
@@ -162,6 +165,7 @@ val RuStrings = Strings(
     signinButton = "Войти 🚀",
     orDivider = "ИЛИ",
     signinTerms = "Войдя, ты соглашаешься с правилами и конфиденциальностью.",
+    privacyPolicy = "Политика конфиденциальности",
     topUpUnavailable = "Пакеты пока недоступны — попробуй позже.",
 )
 
@@ -170,6 +174,7 @@ val EnStrings = Strings(
     navProfile = "profile",
     welcomeBack = "welcome back,",
     bambooToday = "BAMBOO FOR TODAY",
+    dailyFreeHint = "🎋 3 free solutions every day",
     solutions = "solutions",
     donate = "donate",
     recent = "Solutions",
@@ -236,6 +241,7 @@ val EnStrings = Strings(
     signinButton = "Sign in 🚀",
     orDivider = "OR",
     signinTerms = "By signing in you agree to the terms and privacy policy.",
+    privacyPolicy = "Privacy Policy",
     topUpUnavailable = "Packs unavailable right now — try later.",
 )
 

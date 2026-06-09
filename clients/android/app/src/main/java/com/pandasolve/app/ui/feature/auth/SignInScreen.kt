@@ -21,7 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.pandasolve.app.BuildConfig
 import com.pandasolve.app.i18n.EnStrings
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.supportedLanguages
@@ -112,6 +114,18 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
         Text(t.signinTerms,
             fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 11.sp, color = c.inkFaint,
             textAlign = TextAlign.Center, lineHeight = 15.sp)
+        Spacer(Modifier.height(6.dp))
+        val ctx = LocalContext.current
+        Text(
+            t.privacyPolicy,
+            fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clickable {
+                runCatching {
+                    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("${BuildConfig.API_BASE_URL}/privacy")))
+                }
+            },
+        )
         Spacer(Modifier.height(28.dp))
     }
 }

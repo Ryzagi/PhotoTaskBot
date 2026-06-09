@@ -71,6 +71,25 @@ async def healthz() -> dict:
     return {"status": "ok"}
 
 
+# Public legal pages (linked from the app sign-in screen + Play Console listing).
+@app.get("/privacy", include_in_schema=False)
+async def privacy_page():
+    from fastapi.responses import HTMLResponse
+
+    from bot.legal import PRIVACY_HTML
+
+    return HTMLResponse(PRIVACY_HTML)
+
+
+@app.get("/terms", include_in_schema=False)
+async def terms_page():
+    from fastapi.responses import HTMLResponse
+
+    from bot.legal import TERMS_HTML
+
+    return HTMLResponse(TERMS_HTML)
+
+
 app.include_router(v1_router)
 app.include_router(internal_router)
 
