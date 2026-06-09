@@ -72,6 +72,17 @@ fun HomeScreen(
     var renameCard by remember { mutableStateOf<SampleThread?>(null) }
     val dayOpen = remember { mutableStateMapOf<String, Boolean>() }   // date → expanded
     var showTopUp by remember { mutableStateOf(false) }
+    // Real today/yesterday (ISO yyyy-MM-dd) so the day labels reflect the date, not position.
+    val (todayIso, yesterdayIso) = remember {
+        val cal = java.util.Calendar.getInstance()
+        fun iso() = String.format(
+            java.util.Locale.US, "%04d-%02d-%02d",
+            cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH),
+        )
+        val tdy = iso()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        tdy to iso()
+    }
 
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         LazyColumn(
@@ -163,17 +174,25 @@ fun HomeScreen(
             } else {
                 s.days.forEachIndexed { idx, day ->
                     item {
-                        val label = when (idx) { 0 -> t.dayToday; 1 -> t.dayYesterday; else -> t.dayEarlier }
-                            .replaceFirstChar { it.uppercase() }
-                        val isOpen = dayOpen[day.date] ?: (idx == 0)   // today open by default
+                        // Label by the real date, not by position: only the actual
+                        // today/yesterday get a named label; older groups show their date.
+                        val isNamed = day.date == todayIso || day.date == yesterdayIso
+                        val label = (when (day.date) {
+                            todayIso -> t.dayToday
+                            yesterdayIso -> t.dayYesterday
+                            else -> prettyDate(day.date, t == EnStrings)
+                        }).replaceFirstChar { it.uppercase() }
+                        val isOpen = dayOpen[day.date] ?: (idx == 0)   // newest group open by default
                         Row(
                             Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                                 .clickable { dayOpen[day.date] = !isOpen }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             Text(label, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 17.sp, color = c.ink)
-                            Spacer(Modifier.width(8.dp))
-                            Text(prettyDate(day.date, t == EnStrings), fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
+                            if (isNamed) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(prettyDate(day.date, t == EnStrings), fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
+                            }
                             Spacer(Modifier.weight(1f))
                             DayChevron(open = isOpen, color = c.mintDeep, bg = c.mintSoft)
                         }

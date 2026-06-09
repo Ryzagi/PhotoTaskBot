@@ -2,6 +2,7 @@ package com.pandasolve.app.ui.sample
 
 import com.pandasolve.app.domain.model.TaskListItem
 import com.pandasolve.app.latex.latexToUnicode
+import com.pandasolve.app.util.localDateOf
 import com.pandasolve.app.ui.theme.Butter
 import com.pandasolve.app.ui.theme.ButterSoft
 import com.pandasolve.app.ui.theme.Coral
@@ -25,6 +26,6 @@ fun TaskListItem.toRow(index: Int): SampleThread = SampleThread(
     album = inputKind,
     albumColor = albumColors[index % albumColors.size],
     tint = tints[index % tints.size],
-    stamp = createdAt.take(10),
+    stamp = localDateOf(createdAt),
     id = this.id,
 )

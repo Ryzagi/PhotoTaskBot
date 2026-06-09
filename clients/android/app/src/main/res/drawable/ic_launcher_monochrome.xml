@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Line-art panda for Android 13+ themed icons. Only the "ink" is opaque; the
+         face is left transparent so the system tint shows it as outline art.
+         Same transform as the foreground so it stays in the safe zone. -->
+    <group
+        android:scaleX="1.05"
+        android:scaleY="1.05"
+        android:translateX="20.4"
+        android:translateY="19.35">
+
+        <!-- ears -->
+        <path android:fillColor="#000000" android:pathData="M9,15 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+        <path android:fillColor="#000000" android:pathData="M37,15 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+
+        <!-- head outline -->
+        <path android:strokeColor="#000000" android:strokeWidth="3" android:fillColor="#00000000"
+            android:pathData="M7,37 a25,23 0 1,0 50,0 a25,23 0 1,0 -50,0 Z" />
+
+        <!-- eye patches -->
+        <group android:rotation="-16" android:pivotX="23" android:pivotY="34">
+            <path android:fillColor="#000000" android:pathData="M16.5,34 a6.5,8.5 0 1,0 13,0 a6.5,8.5 0 1,0 -13,0 Z" />
+        </group>
+        <group android:rotation="16" android:pivotX="41" android:pivotY="34">
+            <path android:fillColor="#000000" android:pathData="M34.5,34 a6.5,8.5 0 1,0 13,0 a6.5,8.5 0 1,0 -13,0 Z" />
+        </group>
+
+        <!-- nose + mouth -->
+        <path android:fillColor="#000000" android:pathData="M29,43 a3,2.1 0 1,0 6,0 a3,2.1 0 1,0 -6,0 Z" />
+        <path android:strokeColor="#000000" android:strokeWidth="1.8" android:strokeLineCap="round"
+            android:pathData="M28,47 Q32,51 36,47" />
+    </group>
+</vector>

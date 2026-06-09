@@ -10,6 +10,7 @@ import com.pandasolve.app.domain.model.Album
 import com.pandasolve.app.domain.model.TaskListItem
 import com.pandasolve.app.ui.sample.SampleThread
 import com.pandasolve.app.ui.sample.toRow
+import com.pandasolve.app.util.localDateOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -158,9 +159,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Group tasks by ISO date prefix; the API already returns newest-first. */
+    /** Group tasks by their LOCAL calendar date; the API already returns newest-first. */
     private fun group(items: List<TaskListItem>): List<DayBucket> {
-        val rows = items.mapIndexed { i, item -> item.createdAt.take(10) to item.toRow(i) }
+        val rows = items.mapIndexed { i, item -> localDateOf(item.createdAt) to item.toRow(i) }
         return rows.groupBy({ it.first }, { it.second }).entries.map { (date, its) ->
             DayBucket(date, its)
         }
