@@ -53,6 +53,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.Candy
 import com.pandasolve.app.ui.component.CandyButton
 import com.pandasolve.app.ui.theme.Baloo
@@ -71,6 +72,7 @@ fun CameraScreen(
     viewModel: SolveViewModel = hiltViewModel(),
 ) {
     val c = cute
+    val t = LocalStrings.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
@@ -145,7 +147,7 @@ fun CameraScreen(
                             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(20.dp))
                                 .background(c.card).padding(18.dp),
                         ) {
-                            Text("УСЛОВИЕ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+                            Text(t.solveProblemLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
                             Spacer(Modifier.height(8.dp))
                             BasicTextField(
                                 value = problemText,
@@ -155,7 +157,7 @@ fun CameraScreen(
                                 textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 16.sp, color = c.ink, lineHeight = 23.sp),
                                 decorationBox = { inner ->
                                     if (problemText.isEmpty()) {
-                                        Text("Напиши условие задачи…\nнапример: реши x² − 5x + 6 = 0",
+                                        Text(t.solveTextPlaceholder,
                                             fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 16.sp, color = c.inkFaint, lineHeight = 23.sp)
                                     }
                                     inner()
@@ -183,16 +185,16 @@ fun CameraScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text("Дай доступ к камере 🐼", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 24.sp,
+                    Text(t.cameraPermTitle, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 24.sp,
                         color = Color.White, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(8.dp))
-                    Text("чтобы сфотографировать задачу", fontFamily = Nunito, fontWeight = FontWeight.W600,
+                    Text(t.cameraPermSubtitle, fontFamily = Nunito, fontWeight = FontWeight.W600,
                         fontSize = 13.sp, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
                     Spacer(Modifier.height(20.dp))
-                    CandyButton("Разрешить", { permLauncher.launch(Manifest.permission.CAMERA) }, Modifier.fillMaxWidth(0.7f), Candy.Mint)
+                    CandyButton(t.cameraPermAllow, { permLauncher.launch(Manifest.permission.CAMERA) }, Modifier.fillMaxWidth(0.7f), Candy.Mint)
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        "или напиши текстом →", fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 17.sp, color = c.lav,
+                        t.cameraOrType, fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 17.sp, color = c.lav,
                         modifier = Modifier.clickable { mode = "text" },
                     )
                 }
@@ -204,7 +206,7 @@ fun CameraScreen(
                         Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp)
                             .clip(RoundedCornerShape(999.dp)).background(Color.Black.copy(alpha = 0.32f))
                             .padding(horizontal = 16.dp, vertical = 6.dp),
-                    ) { Text("наведи на задачу ✏️", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 20.sp, color = Color.White) }
+                    ) { Text(t.cameraAim, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 20.sp, color = Color.White) }
                 }
             }
 
@@ -223,7 +225,7 @@ fun CameraScreen(
                 ) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(c.mint))
                     Spacer(Modifier.width(8.dp))
-                    Text("панда готова", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = Color.White)
+                    Text(t.cameraReady, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 12.sp, color = Color.White)
                 }
                 RoundBtn(
                     onClick = {
@@ -248,17 +250,17 @@ fun CameraScreen(
                     Text("+", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 16.sp, color = Color.White)
                 }
                 Spacer(Modifier.width(11.dp))
-                Text("подсказка панде — необязательно", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = Color(0xFFF3EAD9))
+                Text(t.solveHintOptional, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = Color(0xFFF3EAD9))
             }
             Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     fun modeColor(m: String) = if (mode == m) c.mint else Color.White.copy(alpha = 0.5f)
-                    Text("ТЕКСТ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("text"),
+                    Text(t.modeText, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("text"),
                         modifier = Modifier.clickable { mode = "text" })
-                    Text("ФОТО", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("photo"),
+                    Text(t.modePhoto, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = modeColor("photo"),
                         modifier = Modifier.clickable { mode = "photo" })
-                    Text("ФАЙЛ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f),
+                    Text(t.modeFile, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f),
                         modifier = Modifier.clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) })
                 }
                 // shutter — captures a photo or submits the typed problem
@@ -306,7 +308,7 @@ fun CameraScreen(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CircularProgressIndicator(color = cute.mint)
                 Spacer(Modifier.height(14.dp))
-                Text("Панда решает… 🐼", fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 22.sp, color = Color.White)
+                Text(t.solvingPanda, fontFamily = Caveat, fontWeight = FontWeight.W700, fontSize = 22.sp, color = Color.White)
             }
         }
     }
