@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, Form
 
 from bot.app.deps import get_billing, get_db
@@ -59,18 +57,21 @@ async def get_balance(
 
 @router.post("/users/list")
 async def list_users(db: SupabaseService = Depends(get_db)) -> dict:
-    """Admin: returns every telegram-linked user ID for broadcasts."""
+    """Admin: every Telegram-reachable user id, for broadcasts.
+
+    In the text-key model the Telegram id is stored in `user_id` (digits);
+    mobile users have a UUID there, so we keep only the numeric ones."""
+    db._ensure_session()
     resp = (
         db.supabase_client.table(db._users_table)
-        .select("telegram_user_id")
-        .neq("telegram_user_id", None)
+        .select("user_id")
         .execute()
     )
     return {
         "message": [
-            {"user_id": row["telegram_user_id"]}
+            {"user_id": int(row["user_id"])}
             for row in (resp.data or [])
-            if row.get("telegram_user_id") is not None
+            if str(row.get("user_id") or "").isdigit()
         ],
         "status_code": 200,
     }
@@ -82,20 +83,20 @@ async def add_subscription_for_all(
     db: SupabaseService = Depends(get_db),
     billing: BillingService = Depends(get_billing),
 ) -> dict:
-    """Admin: bulk-add subscription credits. Returns telegram_user_ids so the
-    bot can DM each."""
+    """Admin: bulk-add subscription credits. Returns Telegram ids so the bot
+    can DM each. Telegram users are the rows whose `user_id` is numeric."""
     amount = int(data["limit"])
+    db._ensure_session()
     resp = (
         db.supabase_client.table(db._users_table)
-        .select("id, telegram_user_id")
-        .neq("telegram_user_id", None)
+        .select("user_id")
         .execute()
     )
-    rows = resp.data or []
     out: list[dict] = []
-    for row in rows:
-        if not row.get("telegram_user_id"):
+    for row in (resp.data or []):
+        uid = str(row.get("user_id") or "")
+        if not uid.isdigit():
             continue
-        await billing.add_subscription(UUID(row["id"]), amount=amount)
-        out.append({"user_id": row["telegram_user_id"]})
+        await billing.add_subscription(uid, amount=amount)
+        out.append({"user_id": int(uid)})
     return {"message": out, "status_code": 200}

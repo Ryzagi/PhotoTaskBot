@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -53,10 +55,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.component.Candy
 import com.pandasolve.app.ui.component.CandyButton
-import com.pandasolve.app.ui.theme.Baloo
 import com.pandasolve.app.ui.theme.Caveat
 import com.pandasolve.app.ui.theme.Nunito
 import com.pandasolve.app.ui.theme.cute
@@ -88,9 +90,15 @@ fun CameraScreen(
     }
     LaunchedEffect(Unit) { if (!hasPermission) permLauncher.launch(Manifest.permission.CAMERA) }
 
-    // gallery fallback
+    // Telegram-style review step: a captured photo / picked image waits here with an
+    // optional caption before it's submitted.
+    var pendingBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var pendingUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var caption by remember { mutableStateOf("") }
+
+    // gallery fallback — preview + caption before submitting (same as a capture)
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) viewModel.submitImage(uri, null)
+        if (uri != null) { pendingUri = uri; pendingBytes = null }
     }
 
     val previewView = remember {
@@ -126,7 +134,9 @@ fun CameraScreen(
                 val bytes = ByteArray(buffer.remaining())
                 buffer.get(bytes)
                 image.close()
-                viewModel.submitImageBytes(bytes, null)
+                // Show the shot for review + caption instead of submitting straight away.
+                pendingBytes = bytes
+                pendingUri = null
             }
         })
     }
@@ -240,19 +250,7 @@ fun CameraScreen(
         }
 
         // controls
-        Column(Modifier.background(Color.Black).padding(start = 30.dp, end = 30.dp, top = 18.dp, bottom = 34.dp)) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.12f))
-                    .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(24.dp).clip(CircleShape).background(c.coral), contentAlignment = Alignment.Center) {
-                    Text("+", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 16.sp, color = Color.White)
-                }
-                Spacer(Modifier.width(11.dp))
-                Text(t.solveHintOptional, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 13.sp, color = Color(0xFFF3EAD9))
-            }
-            Spacer(Modifier.height(20.dp))
+        Column(Modifier.background(Color.Black).padding(start = 30.dp, end = 30.dp, top = 22.dp, bottom = 34.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     fun modeColor(m: String) = if (mode == m) c.mint else Color.White.copy(alpha = 0.5f)
@@ -296,6 +294,69 @@ fun CameraScreen(
             state.error?.let { err ->
                 Spacer(Modifier.height(10.dp))
                 Text(err, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.coral)
+            }
+        }
+    }
+
+    // Full-screen review of the captured/picked photo with an optional caption (Telegram-style).
+    val previewModel: Any? = pendingBytes ?: pendingUri
+    if (previewModel != null) {
+        Column(Modifier.fillMaxSize().background(Color.Black)) {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                AsyncImage(
+                    model = previewModel,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(Modifier.align(Alignment.TopStart).padding(top = 50.dp, start = 20.dp)) {
+                    RoundBtn(onClick = { pendingBytes = null; pendingUri = null; caption = "" }) {
+                        Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+            // caption + send bar
+            Row(
+                Modifier.fillMaxWidth().background(Color.Black)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .imePadding().navigationBarsPadding(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(22.dp))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    BasicTextField(
+                        value = caption,
+                        onValueChange = { caption = it },
+                        cursorBrush = SolidColor(c.mint),
+                        textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 15.sp, color = Color.White),
+                        decorationBox = { inner ->
+                            if (caption.isEmpty()) {
+                                Text(t.captionPlaceholder, fontFamily = Nunito, fontWeight = FontWeight.W600,
+                                    fontSize = 15.sp, color = Color.White.copy(alpha = 0.5f))
+                            }
+                            inner()
+                        },
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Box(
+                    Modifier.size(52.dp).clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(c.mint, c.sky)))
+                        .clickable(enabled = !state.busy) {
+                            val cap = caption.trim().ifBlank { null }
+                            val bytes = pendingBytes
+                            val uri = pendingUri
+                            pendingBytes = null; pendingUri = null; caption = ""
+                            if (bytes != null) viewModel.submitImageBytes(bytes, cap)
+                            else if (uri != null) viewModel.submitImage(uri, cap)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                }
             }
         }
     }

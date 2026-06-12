@@ -21,6 +21,7 @@ import androidx.navigation.navDeepLink
 import com.pandasolve.app.auth.AuthState
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.stringsFor
+import com.pandasolve.app.prefs.LocalSolveMode
 import com.pandasolve.app.ui.feature.auth.SignInScreen
 import com.pandasolve.app.ui.feature.home.HomeScreen
 import com.pandasolve.app.ui.feature.settings.ProfileScreen
@@ -42,6 +43,7 @@ fun AppNavigation(root: RootViewModel = hiltViewModel()) {
     val nav = rememberNavController()
     val authState by root.authState.collectAsStateWithLifecycle()
     val language by root.language.collectAsStateWithLifecycle()
+    val solveMode by root.solveMode.collectAsStateWithLifecycle()
     val currentRoute = nav.currentBackStackEntryAsState().value?.destination?.route
 
     // Auth gate: while the persisted session is restored we sit on SPLASH, then
@@ -66,7 +68,10 @@ fun AppNavigation(root: RootViewModel = hiltViewModel()) {
         launchSingleTop = true
     }
 
-    CompositionLocalProvider(LocalStrings provides stringsFor(language)) {
+    CompositionLocalProvider(
+        LocalStrings provides stringsFor(language),
+        LocalSolveMode provides solveMode,
+    ) {
     NavHost(nav, startDestination = Routes.SPLASH) {
         composable(Routes.SPLASH) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

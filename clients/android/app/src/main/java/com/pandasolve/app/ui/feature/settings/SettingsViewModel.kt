@@ -6,6 +6,7 @@ import com.pandasolve.app.auth.SupabaseAuth
 import com.pandasolve.app.data.repository.AlbumRepository
 import com.pandasolve.app.data.repository.UserRepository
 import com.pandasolve.app.i18n.LanguageManager
+import com.pandasolve.app.prefs.SolveModeManager
 import com.pandasolve.app.push.NotifPrefs
 import com.pandasolve.app.ui.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,7 @@ data class ProfileUiState(
     val streak: Int = 0,
     val language: String = "ru",
     val theme: String = "system",
+    val solveMode: String = "solve",
     val notifEnabled: Boolean = true,
     val live: Boolean = false,
 )
@@ -37,6 +39,7 @@ class SettingsViewModel @Inject constructor(
     private val albumRepo: AlbumRepository,
     private val languageManager: LanguageManager,
     private val themeManager: ThemeManager,
+    private val solveModeManager: SolveModeManager,
     private val notifPrefs: NotifPrefs,
     private val auth: SupabaseAuth,
 ) : ViewModel() {
@@ -48,6 +51,7 @@ class SettingsViewModel @Inject constructor(
         ProfileUiState(
             language = languageManager.language.value,
             theme = themeManager.mode.value,
+            solveMode = solveModeManager.mode.value,
             notifEnabled = notifPrefs.enabled,
             email = email ?: "",
             name = m?.displayName?.takeIf { it.isNotBlank() }
@@ -79,6 +83,12 @@ class SettingsViewModel @Inject constructor(
     fun setTheme(mode: String) {
         themeManager.set(mode)
         _state.value = _state.value.copy(theme = themeManager.mode.value)
+    }
+
+    /** Pick the solve mode: solve | explain. Persists; drives the answer spoiler live. */
+    fun setSolveMode(mode: String) {
+        solveModeManager.set(mode)
+        _state.value = _state.value.copy(solveMode = solveModeManager.mode.value)
     }
 
     /** Pick a UI language: persist locally (drives LocalStrings immediately) + sync to backend. */

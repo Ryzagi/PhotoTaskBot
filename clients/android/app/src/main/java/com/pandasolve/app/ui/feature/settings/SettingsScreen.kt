@@ -148,6 +148,17 @@ fun ProfileScreen(
                         }
                     }
                 }
+                // solve vs explain — in Explain mode the answer is hidden until tapped
+                Box {
+                    var modeMenu by remember { mutableStateOf(false) }
+                    val modeLabel = if (s.solveMode == "explain") t.solveModeExplain else t.solveModeSolve
+                    Row2("🧠", c.mintSoft, t.rowSolveMode, null, modeLabel, c.mintDeep, onClick = { modeMenu = true })
+                    DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }, offset = DpOffset(170.dp, 0.dp)) {
+                        listOf("solve" to t.solveModeSolve, "explain" to t.solveModeExplain).forEach { (mode, lbl) ->
+                            DropdownMenuItem(text = { Text(lbl) }, onClick = { viewModel.setSolveMode(mode); modeMenu = false })
+                        }
+                    }
+                }
                 // notifications toggle
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.card)

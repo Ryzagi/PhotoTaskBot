@@ -97,6 +97,22 @@ class SupabaseAuth @Inject constructor(
     }
 
     /**
+     * Create an email/password account.
+     *
+     * Returns true if a session is active immediately (Supabase "Confirm email"
+     * is OFF → the user is signed in now), false if confirmation is required
+     * (an email link was sent and there's no session yet). Keep "Confirm email"
+     * ON in the Supabase dashboard so unverified addresses can't be used.
+     */
+    suspend fun signUpWithEmail(email: String, password: String): Boolean {
+        client.auth.signUpWith(Email) {
+            this.email = email
+            this.password = password
+        }
+        return client.auth.currentSessionOrNull() != null
+    }
+
+    /**
      * In-app Google sign-in via the Credential Manager API.
      *
      * Requires `BuildConfig.GOOGLE_WEB_CLIENT_ID` to be the **Web client ID**

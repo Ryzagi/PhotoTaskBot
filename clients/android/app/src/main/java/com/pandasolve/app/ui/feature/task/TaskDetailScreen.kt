@@ -40,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.pandasolve.app.i18n.LocalStrings
+import com.pandasolve.app.prefs.LocalSolveMode
+import com.pandasolve.app.prefs.SolveModeManager
 import com.pandasolve.app.ui.component.AlbumOption
 import com.pandasolve.app.ui.component.AlbumPickerDialog
 import com.pandasolve.app.ui.component.Panda
@@ -61,6 +63,9 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
     var showPicker by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var showTopUp by remember { mutableStateOf(false) }
+    // Explain mode: hide the answer until the student taps to reveal it.
+    val explain = LocalSolveMode.current == SolveModeManager.EXPLAIN
+    var answerRevealed by remember(taskId) { mutableStateOf(false) }
     var attachUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -126,14 +131,28 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             }
 
             Spacer(Modifier.height(18.dp))
-            // answer
+            // answer — in Explain mode it's hidden behind a tap-to-reveal spoiler
+            val answerReady = s.status != "pending" && !first?.answer.isNullOrBlank()
+            val hideAnswer = explain && answerReady && !answerRevealed
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
                     .background(Brush.linearGradient(listOf(c.mint, Color(0xFF9FE0BF)))).padding(18.dp),
             ) {
-                Text("✓ ОТВЕТ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
+                Text(t.answerLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.mintDeep)
                 Spacer(Modifier.height(6.dp))
-                Text(first?.answer ?: "…", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 22.sp, color = Color(0xFF1F5E42))
+                if (hideAnswer) {
+                    Box(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF1F5E42).copy(alpha = 0.13f))
+                            .clickable { answerRevealed = true }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(t.revealAnswer, fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 15.sp, color = Color(0xFF1F5E42))
+                    }
+                } else {
+                    Text(first?.answer ?: "…", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 22.sp, color = Color(0xFF1F5E42))
+                }
             }
 
             Spacer(Modifier.height(22.dp))

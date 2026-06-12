@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import com.pandasolve.app.auth.AuthError
 import com.pandasolve.app.auth.SupabaseAuth
+import com.pandasolve.app.auth.toAuthError
 import com.pandasolve.app.data.repository.DeviceRepository
 import com.pandasolve.app.i18n.LanguageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +23,9 @@ import timber.log.Timber
 data class SignInState(
     val busy: Boolean = false,
     val signedIn: Boolean = false,
-    val error: String? = null,
+    val error: AuthError? = null,
+    // True after sign-up when Supabase requires email confirmation (no session yet).
+    val pendingConfirmation: Boolean = false,
 )
 
 @HiltViewModel
@@ -43,9 +47,37 @@ class SignInViewModel @Inject constructor(
         if (auth.isSignedIn()) viewModelScope.launch { registerFcm() }
     }
 
-    fun signInWithEmail(email: String, password: String) = launchSignIn {
-        if (email.isBlank() || password.isBlank()) error("Заполни почту и пароль")
-        auth.signInWithEmail(email, password)
+    fun signInWithEmail(email: String, password: String) {
+        if (email.isBlank() || password.isBlank()) {
+            _state.update { it.copy(error = AuthError.EMPTY_FIELDS) }
+            return
+        }
+        launchSignIn { auth.signInWithEmail(email, password) }
+    }
+
+    /**
+     * Create an account. If Supabase requires email confirmation there's no
+     * session yet → surface [SignInState.pendingConfirmation] so the UI asks the
+     * user to check their inbox; otherwise we're signed in straight away.
+     */
+    fun signUpWithEmail(email: String, password: String) {
+        viewModelScope.launch {
+            if (email.isBlank() || password.isBlank()) {
+                _state.update { it.copy(error = AuthError.EMPTY_FIELDS) }
+                return@launch
+            }
+            _state.update { it.copy(busy = true, error = null, pendingConfirmation = false) }
+            runCatching { auth.signUpWithEmail(email, password) }
+                .onSuccess { signedInNow ->
+                    if (signedInNow) {
+                        registerFcm()
+                        _state.update { it.copy(busy = false, signedIn = true) }
+                    } else {
+                        _state.update { it.copy(busy = false, pendingConfirmation = true) }
+                    }
+                }
+                .onFailure { e -> _state.update { it.copy(busy = false, error = e.toAuthError()) } }
+        }
     }
 
     fun signInWithGoogle() = launchSignIn { auth.signInWithGoogle() }
@@ -54,13 +86,13 @@ class SignInViewModel @Inject constructor(
 
     private fun launchSignIn(block: suspend () -> Unit) {
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null) }
+            _state.update { it.copy(busy = true, error = null, pendingConfirmation = false) }
             runCatching { block() }
                 .onSuccess {
                     registerFcm()
                     _state.update { it.copy(busy = false, signedIn = true) }
                 }
-                .onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+                .onFailure { e -> _state.update { it.copy(busy = false, error = e.toAuthError()) } }
         }
     }
 

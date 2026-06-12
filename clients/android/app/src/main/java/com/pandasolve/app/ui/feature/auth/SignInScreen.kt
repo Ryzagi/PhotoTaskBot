@@ -13,7 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -24,6 +26,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pandasolve.app.BuildConfig
+import com.pandasolve.app.auth.AuthError
 import com.pandasolve.app.i18n.EnStrings
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.i18n.supportedLanguages
@@ -46,6 +49,8 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
 
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var authMode by rememberSaveable { mutableStateOf("signin") }   // "signin" | "signup"
+    val isSignup = authMode == "signup"
 
     val bob = rememberInfiniteTransition(label = "bob")
     val dy by bob.animateFloat(0f, -10f, infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "dy")
@@ -85,13 +90,37 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
             fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkSoft,
             textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 260.dp))
 
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(22.dp))
+        // sign in / sign up toggle
+        Row(
+            Modifier.clip(RoundedCornerShape(999.dp)).background(c.card)
+                .border(2.dp, c.line, RoundedCornerShape(999.dp)).padding(3.dp),
+        ) {
+            listOf("signin" to t.tabSignIn, "signup" to t.tabSignUp).forEach { (m, lbl) ->
+                val sel = authMode == m
+                Text(
+                    lbl,
+                    fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 13.sp,
+                    color = if (sel) Color.White else c.inkSoft,
+                    modifier = Modifier.clip(RoundedCornerShape(999.dp))
+                        .background(if (sel) c.mintDeep else Color.Transparent)
+                        .clickable { authMode = m }
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
         CuteField(t.fieldEmail, email, { email = it }, focus = true)
         Spacer(Modifier.height(12.dp))
         CuteField(t.fieldPassword, password, { password = it }, password = true)
 
         Spacer(Modifier.height(16.dp))
-        CandyButton(t.signinButton, { viewModel.signInWithEmail(email, password) }, Modifier.fillMaxWidth(), Candy.Mint, enabled = !state.busy)
+        CandyButton(
+            if (isSignup) t.signupButton else t.signinButton,
+            { if (isSignup) viewModel.signUpWithEmail(email, password) else viewModel.signInWithEmail(email, password) },
+            Modifier.fillMaxWidth(), Candy.Mint, enabled = !state.busy,
+        )
 
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -102,12 +131,38 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CandyButton("Google", viewModel::signInWithGoogle, Modifier.weight(1f), Candy.Ghost, enabled = !state.busy)
-            CandyButton("Apple", viewModel::signInWithApple, Modifier.weight(1f), Candy.Ghost, enabled = !state.busy)
+            // Apple sign-in isn't available on Android yet — show it as coming soon.
+            Box(Modifier.weight(1f)) {
+                CandyButton("Apple", {}, Modifier.fillMaxWidth().alpha(0.55f), Candy.Ghost, enabled = false)
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = (-6).dp, y = (-5).dp)
+                        .clip(RoundedCornerShape(999.dp)).background(c.lav)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text(t.soon.uppercase(), fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 9.sp, color = Color.White)
+                }
+            }
         }
 
-        state.error?.let { err ->
+        val errText = when (state.error) {
+            AuthError.EMPTY_FIELDS -> t.errEmptyFields
+            AuthError.INVALID_CREDENTIALS -> t.errInvalidCredentials
+            AuthError.USER_EXISTS -> t.errUserExists
+            AuthError.WEAK_PASSWORD -> t.errWeakPassword
+            AuthError.INVALID_EMAIL -> t.errInvalidEmail
+            AuthError.EMAIL_NOT_CONFIRMED -> t.errEmailNotConfirmed
+            AuthError.RATE_LIMITED -> t.errRateLimited
+            AuthError.NETWORK -> t.errNetwork
+            AuthError.UNKNOWN -> t.errUnknown
+            AuthError.CANCELLED, null -> null
+        }
+        errText?.let { err ->
             Spacer(Modifier.height(14.dp))
             Text(err, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.coralDeep, textAlign = TextAlign.Center)
+        }
+        if (state.pendingConfirmation) {
+            Spacer(Modifier.height(14.dp))
+            Text(t.checkInbox, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.mintDeep, textAlign = TextAlign.Center)
         }
 
         Spacer(Modifier.height(20.dp))
