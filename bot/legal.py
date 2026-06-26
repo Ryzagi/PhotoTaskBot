@@ -140,3 +140,34 @@ TERMS_HTML = f"""<!doctype html>
 </div>
 </body>
 </html>"""
+
+# Landing page after a user clicks the email-confirmation link. Supabase verifies
+# the token, then redirects here (set this URL as the Site URL / a Redirect URL in
+# the Supabase Auth settings). We just tell them to return to the app and sign in.
+CONFIRMED_HTML = """<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PandaSolve — почта подтверждена</title>
+<style>
+  body { margin:0; background:#FDF6ED; color:#4B4138;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.6;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { max-width:420px; margin:20px; background:#fff; border:2px solid #EFE3D2;
+    border-radius:24px; padding:34px 28px; text-align:center; }
+  .badge { font-size:56px; }
+  h1 { font-size:22px; margin:10px 0 6px; color:#2F7D5B; }
+  p { font-size:15px; margin:6px 0; }
+  .sub { color:#9B9081; font-size:13px; margin-top:14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">🐼✅</div>
+    <h1>Почта подтверждена!</h1>
+    <p>Вернись в приложение PandaSolve и войди со своей почтой и паролем.</p>
+    <p class="sub">Email confirmed — open the PandaSolve app and sign in with your email and password.</p>
+  </div>
+</body>
+</html>"""

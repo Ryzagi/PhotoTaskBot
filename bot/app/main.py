@@ -90,6 +90,17 @@ async def terms_page():
     return HTMLResponse(TERMS_HTML)
 
 
+# Where Supabase redirects after a user clicks the email-confirmation link.
+# Set this URL as the Site URL (and a Redirect URL) in Supabase Auth settings.
+@app.get("/auth/confirmed", include_in_schema=False)
+async def auth_confirmed_page():
+    from fastapi.responses import HTMLResponse
+
+    from bot.legal import CONFIRMED_HTML
+
+    return HTMLResponse(CONFIRMED_HTML)
+
+
 app.include_router(v1_router)
 app.include_router(internal_router)
 
