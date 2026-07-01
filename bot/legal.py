@@ -171,3 +171,66 @@ CONFIRMED_HTML = """<!doctype html>
   </div>
 </body>
 </html>"""
+
+# Account-deletion instructions, required by Google Play (Data safety → account
+# deletion). Must name the app, give clear steps, and state what's deleted/kept.
+DELETE_ACCOUNT_HTML = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PandaSolve — Delete your account</title>
+<style>
+  body {{ margin:0; background:#FDF6ED; color:#4B4138;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.6; }}
+  .wrap {{ max-width:720px; margin:0 auto; padding:32px 20px 64px; }}
+  .badge {{ font-size:40px; }}
+  h1 {{ font-size:26px; margin:8px 0 2px; }}
+  h2 {{ font-size:18px; margin:26px 0 6px; color:#2F7D5B; }}
+  .card {{ background:#fff; border:2px solid #EFE3D2; border-radius:20px; padding:18px 20px; }}
+  a {{ color:#2F7D5B; }}
+  ol, ul {{ padding-left:22px; }}
+  li {{ margin:6px 0; }}
+  footer {{ margin-top:36px; color:#9B9081; font-size:13px; }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="badge">🐼</div>
+  <h1>Delete your PandaSolve account</h1>
+  <div class="card">
+    <p>You can delete your <b>PandaSolve</b> account and its associated data at any time.</p>
+
+    <h2>How to request deletion</h2>
+    <ol>
+      <li>Email <a href="mailto:{CONTACT_EMAIL}?subject=Delete%20my%20account">{CONTACT_EMAIL}</a>
+        from the email address you use to sign in (or include it in the message).</li>
+      <li>Use the subject line <b>"Delete my account"</b>.</li>
+      <li>We verify the request and delete your account within <b>30 days</b>, and email you to confirm.</li>
+    </ol>
+
+    <h2>What gets deleted</h2>
+    <ul>
+      <li>Your account and sign-in details (email / auth identity)</li>
+      <li>The problems you submitted — photos and typed text</li>
+      <li>Your chat messages and attachments</li>
+      <li>Your solution history and folders</li>
+      <li>Your solution balance</li>
+    </ul>
+
+    <h2>What may be kept</h2>
+    <p>We retain a minimal record of in-app purchases / transactions where required for
+    legal, tax, accounting and fraud-prevention purposes, for the period required by law,
+    after which it is deleted. These records are not used to identify you inside the app.</p>
+
+    <h2>Deleting only some data</h2>
+    <p>You can also ask us to delete <b>specific data</b> (for example, your solution history)
+    without deleting your whole account — just say so in the same email.</p>
+
+    <h2>Contact</h2>
+    <p><a href="mailto:{CONTACT_EMAIL}">{CONTACT_EMAIL}</a></p>
+  </div>
+  <footer>© 2026 PandaSolve · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a></footer>
+</div>
+</body>
+</html>"""

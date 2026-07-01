@@ -101,6 +101,16 @@ async def auth_confirmed_page():
     return HTMLResponse(CONFIRMED_HTML)
 
 
+# Account-deletion instructions (paste this URL into Play Console → Data safety).
+@app.get("/delete-account", include_in_schema=False)
+async def delete_account_page():
+    from fastapi.responses import HTMLResponse
+
+    from bot.legal import DELETE_ACCOUNT_HTML
+
+    return HTMLResponse(DELETE_ACCOUNT_HTML)
+
+
 app.include_router(v1_router)
 app.include_router(internal_router)
 
