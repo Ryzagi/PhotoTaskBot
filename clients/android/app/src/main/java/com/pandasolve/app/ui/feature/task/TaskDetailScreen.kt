@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +44,8 @@ import coil.compose.AsyncImage
 import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.prefs.LocalSolveMode
 import com.pandasolve.app.prefs.SolveModeManager
+import com.pandasolve.app.util.localTimeOf
+import com.pandasolve.app.util.solveSeconds
 import com.pandasolve.app.ui.component.AlbumOption
 import com.pandasolve.app.ui.component.AlbumPickerDialog
 import com.pandasolve.app.ui.component.Panda
@@ -85,9 +89,27 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(14.dp)).background(c.card).border(2.dp, c.line, RoundedCornerShape(14.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
                     Text("‹", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 20.sp, color = c.ink)
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Задача №42", fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.ink)
-                    Text("9:42 · 11 сек", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 10.sp, color = c.inkFaint)
+                Column(
+                    Modifier.weight(1f).padding(horizontal = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        s.title?.takeIf { it.isNotBlank() } ?: t.taskTitleFallback,
+                        fontFamily = Baloo, fontWeight = FontWeight.W700, fontSize = 16.sp, color = c.ink,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                    )
+                    val created = s.createdAt
+                    val done = s.completedAt
+                    val secs = if (created != null && done != null) solveSeconds(created, done) else null
+                    val time = created?.let { localTimeOf(it) }.orEmpty()
+                    val sub = when {
+                        time.isEmpty() -> null
+                        secs != null && secs > 0 -> "$time · $secs ${t.secondsShort}"
+                        else -> time
+                    }
+                    sub?.let {
+                        Text(it, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 10.sp, color = c.inkFaint)
+                    }
                 }
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(14.dp)).background(c.coralSoft), contentAlignment = Alignment.Center) {
                     Text("💚", fontSize = 17.sp)
@@ -103,7 +125,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             ) {
                 Box(Modifier.size(9.dp).clip(RoundedCornerShape(3.dp)).background(c.mint))
                 Spacer(Modifier.width(8.dp))
-                Text("${s.albumName ?: "выбрать папку"}  ⌄", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.lavDeep)
+                Text("${s.albumName ?: t.chooseFolder}  ⌄", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 11.sp, color = c.lavDeep)
             }
 
             Spacer(Modifier.height(13.dp))
@@ -113,20 +135,20 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.card)
                         .border(2.dp, c.mint, RoundedCornerShape(20.dp)).padding(17.dp).padding(top = 4.dp),
                 ) {
-                    Text(s.condition,
+                    Text(s.condition.ifBlank { if (s.status == "failed") t.taskLoadFailed else "" },
                         fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.ink, lineHeight = 20.sp)
                 }
                 Box(Modifier.offset(x = 18.dp, y = (-9).dp).rotate(-3f).clip(RoundedCornerShape(6.dp)).background(c.butter).padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    Text("УСЛОВИЕ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.butterDeep)
+                    Text(t.solveProblemLabel, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.butterDeep)
                 }
             }
 
             Spacer(Modifier.height(20.dp))
             if (s.status == "pending") {
-                SectionLabel("🐼 решаю…", c.mintDeep, c.mintSoft)
-                Step(1, "Панда читает условие и думает над решением…")
+                SectionLabel(t.solvingLabel, c.mintDeep, c.mintSoft)
+                Step(1, t.solvingStep)
             } else {
-                SectionLabel("📝 решение", c.mintDeep, c.mintSoft)
+                SectionLabel(t.solutionLabel, c.mintDeep, c.mintSoft)
                 first?.steps?.forEachIndexed { i, stepText -> Step(i + 1, stepText) }
             }
 
@@ -156,11 +178,11 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             }
 
             Spacer(Modifier.height(22.dp))
-            SectionLabel("💬 спроси панду", c.lavDeep, c.lavSoft)
+            SectionLabel(t.askPandaLabel, c.lavDeep, c.lavSoft)
             Spacer(Modifier.height(12.dp))
             if (s.chat.isEmpty()) {
                 Text(
-                    "Задай уточняющий вопрос по решению выше 🐼",
+                    t.chatEmptyHint,
                     fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint,
                 )
             } else {
@@ -170,7 +192,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
             }
             if (s.sending) {
                 Spacer(Modifier.height(10.dp))
-                Text("панда печатает…", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.lavDeep)
+                Text(t.pandaTyping, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.lavDeep)
             }
             if (s.needTopUp) {
                 Spacer(Modifier.height(10.dp))
@@ -201,7 +223,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                     AsyncImage(model = uri, contentDescription = null,
                         modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(10.dp))
-                    Text("фото прикреплено", fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.inkSoft, modifier = Modifier.weight(1f))
+                    Text(t.photoAttached, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp, color = c.inkSoft, modifier = Modifier.weight(1f))
                     Text("✕", fontSize = 15.sp, color = c.coralDeep, modifier = Modifier.clip(CircleShape).clickable { attachUri = null }.padding(6.dp))
                 }
             }
@@ -224,7 +246,7 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
                     textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.ink),
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
-                        if (draft.isEmpty()) Text(if (attachUri != null) "подпись к фото…" else "спросить ещё…", fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
+                        if (draft.isEmpty()) Text(if (attachUri != null) t.captionToPhoto else t.askMore, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 14.sp, color = c.inkFaint)
                         inner()
                     },
                 )

@@ -21,7 +21,7 @@ private val albumColors = listOf(Mint, Coral, Lav, Sky, Butter)
 fun TaskListItem.toRow(index: Int): SampleThread = SampleThread(
     glyph = if (inputKind == "image") "🖼" else "📝",
     isMath = false,
-    preview = latexToUnicode(preview).ifBlank { "Без названия" },
+    preview = latexToUnicode(preview),   // blank → ThreadCard shows a localized "Untitled"
     status = if (status == "done") TStatus.Done else TStatus.Talking,
     album = inputKind,
     albumColor = albumColors[index % albumColors.size],

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pandasolve.app.i18n.LocalStrings
 import com.pandasolve.app.ui.sample.SampleThread
 import com.pandasolve.app.ui.sample.TStatus
 import com.pandasolve.app.ui.theme.Baloo
@@ -25,6 +26,7 @@ import com.pandasolve.app.ui.theme.cute
 @Composable
 fun ThreadCard(t: SampleThread, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     val c = cute
+    val s = LocalStrings.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -44,13 +46,13 @@ fun ThreadCard(t: SampleThread, onClick: () -> Unit, onLongClick: () -> Unit = {
         }
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Text(t.preview, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.5.sp, color = c.ink,
+            Text(t.preview.ifBlank { s.untitled }, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.5.sp, color = c.ink,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp)
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when (t.status) {
-                    TStatus.Done -> Text("● решено", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.mintDeep)
-                    TStatus.Talking -> Text("◐ беседа", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.lavDeep)
+                    TStatus.Done -> Text("● " + s.statusSolved, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.mintDeep)
+                    TStatus.Talking -> Text("◐ " + s.statusTalking, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.lavDeep)
                 }
                 Text("  ·  ", fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
                 Text(t.album, fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkSoft)

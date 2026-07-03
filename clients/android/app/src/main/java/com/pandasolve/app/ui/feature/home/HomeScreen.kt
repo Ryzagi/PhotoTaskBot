@@ -147,7 +147,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(12.dp))
 
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip("📚 все", "${s.solvedCount}", c.lav, c.lavShadow, selected = s.selectedAlbumId == null,
+                    FilterChip("📚 " + t.filterAll, "${s.solvedCount}", c.lav, c.lavShadow, selected = s.selectedAlbumId == null,
                         onClick = { viewModel.setAlbumFilter(null) }, onLongClick = {})
                     s.albums.forEach { a ->
                         FilterChip("${a.emoji ?: "📚"} ${a.name}", "${a.taskCount}", albumSwatch(a.color ?: "mint"), c.lavShadow,

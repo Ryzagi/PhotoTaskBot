@@ -29,15 +29,17 @@ class App : Application() {
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = getSystemService(NotificationManager::class.java) ?: return
+        // Names come from string resources so they follow the device locale.
         mgr.createNotificationChannel(
-            NotificationChannel("task_updates", "Решения", NotificationManager.IMPORTANCE_HIGH)
-                .apply { description = "Уведомления о решённых задачах" }
+            NotificationChannel(
+                "task_updates", getString(R.string.channel_task_updates_name), NotificationManager.IMPORTANCE_HIGH,
+            ).apply { description = getString(R.string.channel_task_updates_desc) }
         )
         mgr.createNotificationChannel(
-            NotificationChannel("account", "Аккаунт", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel("account", getString(R.string.channel_account_name), NotificationManager.IMPORTANCE_DEFAULT)
         )
         mgr.createNotificationChannel(
-            NotificationChannel("promo", "Промо", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel("promo", getString(R.string.channel_promo_name), NotificationManager.IMPORTANCE_LOW)
         )
     }
 }

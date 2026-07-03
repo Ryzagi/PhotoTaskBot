@@ -23,6 +23,9 @@ data class ChatTurn(val fromMe: Boolean, val text: String, val imageUrl: String?
 
 data class TaskUiState(
     val status: String = "pending",      // pending | done | failed
+    val title: String? = null,           // model-generated solution title (header)
+    val createdAt: String? = null,       // ISO — for the header time
+    val completedAt: String? = null,     // ISO — for the solve duration
     val condition: String = "",
     val problems: List<ProblemUi> = emptyList(),
     val albums: List<AlbumOption> = emptyList(),
@@ -70,7 +73,7 @@ class TaskDetailViewModel @Inject constructor(
                 val status = runCatching { applyTask(taskRepo.get(taskId)) }.getOrElse {
                     Timber.w(it, "task load failed")
                     if (!_state.value.live) {
-                        _state.update { it.copy(status = "failed", condition = "Не удалось загрузить задачу", live = true) }
+                        _state.update { it.copy(status = "failed", condition = "", live = true) }
                     }
                     return@launch
                 }
@@ -92,6 +95,9 @@ class TaskDetailViewModel @Inject constructor(
         _state.update { st ->
             st.copy(
                 status = t.status,
+                title = t.solution?.title?.takeIf { it.isNotBlank() } ?: st.title,
+                createdAt = t.createdAt,
+                completedAt = t.completedAt ?: st.completedAt,
                 condition = t.inputText?.let(::latexToUnicode) ?: problems.firstOrNull()?.problem ?: st.condition,
                 problems = problems,
                 taskAlbumId = t.albumId,

@@ -1,29 +1,36 @@
 package com.pandasolve.app.util
 
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 
+/** Parse a server ISO-8601 timestamp to an offset-aware instant (falls back to
+ *  treating a naive timestamp as UTC). Null if it can't be parsed. */
+private fun parse(iso: String): OffsetDateTime? =
+    runCatching { OffsetDateTime.parse(iso) }
+        .recoverCatching { LocalDateTime.parse(iso).atOffset(ZoneOffset.UTC) }
+        .getOrNull()
+
 /**
- * Convert a server ISO-8601 timestamp (UTC, e.g. "2026-06-09T22:30:00+00:00" or
- * "…Z") to the device-local calendar date as "yyyy-MM-dd".
- *
- * Tasks are grouped and labelled (Today / Yesterday / date) by this string, so
- * the day a task lands in must reflect the user's local clock, not UTC — a solve
- * at 01:00 local belongs to "today", even though it's still "yesterday" in UTC.
- * Falls back gracefully if the string has no offset or can't be parsed.
+ * Convert a server ISO-8601 timestamp (UTC) to the device-local calendar date as
+ * "yyyy-MM-dd". Tasks are grouped/labelled by this, so it must reflect the user's
+ * local clock, not UTC. Falls back to the raw date prefix if unparseable.
  */
-fun localDateOf(iso: String): String = runCatching {
-    OffsetDateTime.parse(iso)
-        .atZoneSameInstant(ZoneId.systemDefault())
-        .toLocalDate()
-        .toString()
-}.recoverCatching {
-    // No timezone in the string → treat the wall-clock time as UTC.
-    LocalDateTime.parse(iso)
-        .atOffset(ZoneOffset.UTC)
-        .atZoneSameInstant(ZoneId.systemDefault())
-        .toLocalDate()
-        .toString()
-}.getOrElse { iso.take(10) }
+fun localDateOf(iso: String): String =
+    parse(iso)?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalDate()?.toString()
+        ?: iso.take(10)
+
+/** Device-local time of day as "HH:mm" (e.g. "09:42"), or "" if unparseable. */
+fun localTimeOf(iso: String): String {
+    val t = parse(iso)?.atZoneSameInstant(ZoneId.systemDefault())?.toLocalTime() ?: return ""
+    return "%02d:%02d".format(t.hour, t.minute)
+}
+
+/** Whole seconds between two ISO timestamps (solve duration), or null. */
+fun solveSeconds(startIso: String, endIso: String): Long? {
+    val a = parse(startIso) ?: return null
+    val b = parse(endIso) ?: return null
+    return Duration.between(a, b).seconds.takeIf { it in 0..86_400 }
+}

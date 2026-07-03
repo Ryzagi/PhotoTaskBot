@@ -74,7 +74,7 @@ data class ProblemDto(
 )
 
 @Serializable
-data class Solution(val solutions: List<ProblemDto>)
+data class Solution(val title: String? = null, val solutions: List<ProblemDto>)
 
 @Serializable
 data class TaskCreateText(val text: String)
