@@ -131,6 +131,7 @@ fun AlbumEditorDialog(
                 Spacer(Modifier.height(3.dp))
                 BasicTextField(
                     value = name, onValueChange = { name = it }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),   // tap anywhere in the row to type
                     cursorBrush = SolidColor(c.mintDeep),
                     textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink),
                     decorationBox = { inner ->

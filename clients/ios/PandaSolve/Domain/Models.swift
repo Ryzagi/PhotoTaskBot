@@ -123,6 +123,7 @@ struct ChatMessage: Codable, Hashable, Identifiable {
     let role: String            // "user" | "assistant"
     let content: String
     let createdAt: String
+    let imageUrl: String?       // signed URL of an attached photo, if any
     var id: String { "\(role)-\(createdAt)-\(content.hashValue)" }
 }
 

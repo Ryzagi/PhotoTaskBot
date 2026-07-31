@@ -1,8 +1,14 @@
 package com.pandasolve.app.ui.feature.solve
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.ActivityCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +23,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -85,8 +93,15 @@ fun CameraScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+    // After a denial with no rationale available, Android won't show the dialog
+    // again — the only path is the app's system settings page.
+    var deniedForever by remember { mutableStateOf(false) }
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasPermission = granted
+        if (!granted) {
+            val act = context.findActivity()
+            deniedForever = act == null || !ActivityCompat.shouldShowRequestPermissionRationale(act, Manifest.permission.CAMERA)
+        }
     }
     LaunchedEffect(Unit) { if (!hasPermission) permLauncher.launch(Manifest.permission.CAMERA) }
 
@@ -150,7 +165,8 @@ fun CameraScreen(
                 mode == "text" -> {
                     // type-a-problem card
                     Column(
-                        Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = 104.dp, bottom = 24.dp),
+                        Modifier.fillMaxSize().imePadding()
+                            .padding(start = 24.dp, end = 24.dp, top = 104.dp, bottom = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Column(
@@ -162,7 +178,7 @@ fun CameraScreen(
                             BasicTextField(
                                 value = problemText,
                                 onValueChange = { problemText = it },
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                                 cursorBrush = SolidColor(c.mintDeep),
                                 textStyle = TextStyle(fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 16.sp, color = c.ink, lineHeight = 23.sp),
                                 decorationBox = { inner ->
@@ -201,7 +217,14 @@ fun CameraScreen(
                     Text(t.cameraPermSubtitle, fontFamily = Nunito, fontWeight = FontWeight.W600,
                         fontSize = 13.sp, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
                     Spacer(Modifier.height(20.dp))
-                    CandyButton(t.cameraPermAllow, { permLauncher.launch(Manifest.permission.CAMERA) }, Modifier.fillMaxWidth(0.7f), Candy.Mint)
+                    CandyButton(
+                        t.cameraPermAllow,
+                        {
+                            if (deniedForever) context.openAppSettings()
+                            else permLauncher.launch(Manifest.permission.CAMERA)
+                        },
+                        Modifier.fillMaxWidth(0.7f), Candy.Mint,
+                    )
                     Spacer(Modifier.height(10.dp))
                     Text(
                         t.cameraOrType, fontFamily = Caveat, fontWeight = FontWeight.W600, fontSize = 17.sp, color = c.lav,
@@ -250,7 +273,10 @@ fun CameraScreen(
         }
 
         // controls
-        Column(Modifier.background(Color.Black).padding(start = 30.dp, end = 30.dp, top = 22.dp, bottom = 34.dp)) {
+        Column(
+            Modifier.background(Color.Black).navigationBarsPadding().imePadding()
+                .padding(start = 30.dp, end = 30.dp, top = 22.dp, bottom = 20.dp),
+        ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     fun modeColor(m: String) = if (mode == m) c.mint else Color.White.copy(alpha = 0.5f)
@@ -389,4 +415,22 @@ private fun RoundBtn(onClick: () -> Unit, active: Boolean = false, content: @Com
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
+}
+
+
+private fun Context.findActivity(): Activity? {
+    var c: Context = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
+}
+
+/** Opens this app's system settings page (camera permission lives there once permanently denied). */
+private fun Context.openAppSettings() {
+    startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
 }

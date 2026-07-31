@@ -14,3 +14,5 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 Config-Dev.xcconfig
 Config-Prod.xcconfig
+Secrets.xcconfig
+.swiftpm/

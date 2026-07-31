@@ -35,6 +35,14 @@ final class SupabaseAuth: NSObject {
         try await client.auth.signIn(email: email, password: password)
     }
 
+    /// Create an email/password account. Returns true when a session is active
+    /// immediately (Supabase "Confirm email" OFF); false when a confirmation
+    /// email was sent and the user must verify first. Mirrors Android.
+    func signUp(email: String, password: String) async throws -> Bool {
+        try await client.auth.signUp(email: email, password: password)
+        return client.auth.currentSession != nil
+    }
+
     // MARK: - Apple
 
     func signInWithApple() async throws {

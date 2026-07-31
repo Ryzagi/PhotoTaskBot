@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.Canvas
@@ -92,6 +93,7 @@ fun CandyButton(
 
     Box(
         modifier
+            .alpha(if (enabled) 1f else 0.45f)   // disabled buttons read as inactive
             .clip(shape)
             .background(shadow.copy(alpha = if (variant == Candy.Ghost) 0.9f else 1f))
     ) {

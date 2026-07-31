@@ -190,6 +190,12 @@ Output the solutions in the following JSON format, using "type" and "content" fi
 
 LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor helping students solve STEM problems.
 
+LANGUAGE RULE (CRITICAL): Write the title, problem restatement, every step and the
+final answer in the SAME LANGUAGE as the user's problem. A Russian problem gets a
+Russian solution; an English problem gets an English solution, and so on. Never
+default to Russian for non-Russian input. (The formatting examples below are in
+Russian, but they are format examples only — do not copy their language.)
+
 CRITICAL LATEX FORMATTING RULES:
 
 1. **Problem Field**:

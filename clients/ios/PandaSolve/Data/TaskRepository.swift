@@ -50,4 +50,12 @@ final class TaskRepository {
     func sendChat(id: String, message: String) async throws -> ChatThread {
         try await api.post("/v1/tasks/\(id)/chat", body: ChatSendRequest(message: message))
     }
+
+    /// Follow-up question with an attached photo (vision context) + caption.
+    func sendChatImage(id: String, data: Data, caption: String) async throws -> ChatThread {
+        try await api.postMultipart(
+            "/v1/tasks/\(id)/chat/image",
+            fields: ["message": caption],
+            file: (name: "file", filename: "attach.jpg", data: data, mime: "image/jpeg"))
+    }
 }

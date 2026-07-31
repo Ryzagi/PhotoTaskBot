@@ -65,7 +65,7 @@ fun ProfileScreen(
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 96.dp),
+                .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 132.dp),
         ) {
             Text(t.profileTitle, fontFamily = Baloo, fontWeight = FontWeight.W800, fontSize = 24.sp, color = c.ink)
 

@@ -74,11 +74,11 @@ fun latexToUnicode(input: String): String {
 
     // \frac/\dfrac/\tfrac/\cfrac{a}{b} → (a)/(b); loop a few times for limited nesting.
     repeat(4) {
-        s = Regex("""\\[dtc]?frac\{([^{}]*)\}\{([^{}]*)\}""")
+        s = Regex("""\\[dtc]?frac\{((?:[^{}]|\{[^{}]*\})*)\}\{((?:[^{}]|\{[^{}]*\})*)\}""")
             .replace(s) { "(${it.groupValues[1]})/(${it.groupValues[2]})" }
     }
     // \sqrt{x} → √(x)
-    s = Regex("""\\sqrt\{([^{}]*)\}""").replace(s) { "√(${it.groupValues[1]})" }
+    s = Regex("""\\sqrt\{((?:[^{}]|\{[^{}]*\})*)\}""").replace(s) { "√(${it.groupValues[1]})" }
 
     // Accents: attach a combining mark to the argument (e.g. \dot{x} → ẋ, \vec{v} → v⃗).
     s = Regex("""\\dot\{([^{}]*)\}""").replace(s) { it.groupValues[1] + "̇" }
@@ -92,13 +92,19 @@ fun latexToUnicode(input: String): String {
     for ((k, v) in SYMBOLS) s = s.replace(k, v)
 
     // Superscripts and subscripts.
-    s = Regex("""\^\{([^{}]*)\}""").replace(s) { superscript(it.groupValues[1]) }
+    s = Regex("""\^\{((?:[^{}]|\{[^{}]*\})*)\}""").replace(s) { superscript(it.groupValues[1]) }
     s = Regex("""\^(\S)""").replace(s) { superscript(it.groupValues[1]) }
-    s = Regex("""_\{([^{}]*)\}""").replace(s) { subscript(it.groupValues[1]) }
+    s = Regex("""_\{((?:[^{}]|\{[^{}]*\})*)\}""").replace(s) { subscript(it.groupValues[1]) }
     s = Regex("""_(\S)""").replace(s) { subscript(it.groupValues[1]) }
 
     // Any remaining \command → strip the backslash (keeps sin, cos, log, lim…).
     s = Regex("""\\([a-zA-Z]+)""").replace(s) { it.groupValues[1] }
+
+    // Drop unrenderable code points (private-use/unassigned → tofu □ boxes).
+    s = s.filter { ch ->
+        val type = Character.getType(ch)
+        type != Character.PRIVATE_USE.toInt() && type != Character.UNASSIGNED.toInt()
+    }
 
     // Leftover grouping braces and tidy whitespace.
     s = s.replace("{", "").replace("}", "")

@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailViewModel = hiltViewModel()) {
     val c = cute
     val t = LocalStrings.current
@@ -77,11 +78,14 @@ fun TaskDetailScreen(taskId: String, onBack: () -> Unit, viewModel: TaskDetailVi
         if (uri != null) attachUri = uri
     }
     val scroll = rememberScrollState()
-    // Keep the newest chat visible as messages arrive / while typing.
+    // Keep the newest chat visible as messages arrive / while typing, and lift
+    // the content when the keyboard opens so the latest answer stays readable.
     LaunchedEffect(s.chat.size, s.sending) { scroll.animateScrollTo(scroll.maxValue) }
+    val imeVisible = WindowInsets.isImeVisible
+    LaunchedEffect(imeVisible) { if (imeVisible) scroll.animateScrollTo(scroll.maxValue) }
     Box(Modifier.fillMaxSize().dotPaper(c.paper, c.ink.copy(alpha = 0.07f))) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll)
+            Modifier.fillMaxSize().imePadding().verticalScroll(scroll)
                 .padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 100.dp),
         ) {
             // top

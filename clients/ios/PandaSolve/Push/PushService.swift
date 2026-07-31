@@ -28,7 +28,9 @@ final class PushService: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    func userNotificationCenter(
+    // nonisolated: the system may call this off the main actor, and it touches
+    // no actor state — satisfies the protocol without a Swift 6 isolation error.
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completion: @escaping (UNNotificationPresentationOptions) -> Void

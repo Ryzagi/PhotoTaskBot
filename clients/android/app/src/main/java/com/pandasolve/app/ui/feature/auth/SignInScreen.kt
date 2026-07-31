@@ -159,6 +159,12 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
         errText?.let { err ->
             Spacer(Modifier.height(14.dp))
             Text(err, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.coralDeep, textAlign = TextAlign.Center)
+            if (state.error == AuthError.UNKNOWN) {
+                state.errorDetail?.let { d ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(d, fontFamily = Nunito, fontWeight = FontWeight.W600, fontSize = 10.sp, color = c.inkFaint, textAlign = TextAlign.Center)
+                }
+            }
         }
         if (state.pendingConfirmation) {
             Spacer(Modifier.height(14.dp))
@@ -194,32 +200,43 @@ private fun CuteField(
     password: Boolean = false,
 ) {
     val c = cute
-    Column(
+    var reveal by remember { mutableStateOf(false) }
+    Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(c.card)
             .border(2.dp, if (focus) c.mint else c.line, RoundedCornerShape(20.dp))
             .padding(horizontal = 16.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label.uppercase(), fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
-        Spacer(Modifier.height(3.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            cursorBrush = SolidColor(c.mintDeep),
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink,
-            ),
-            decorationBox = { inner ->
-                if (value.isEmpty()) {
-                    Text(if (password) "••••••••" else "you@example.com",
-                        fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
-                }
-                inner()
-            },
-        )
+        Column(Modifier.weight(1f)) {
+            Text(label.uppercase(), fontFamily = Nunito, fontWeight = FontWeight.W800, fontSize = 10.sp, color = c.inkFaint)
+            Spacer(Modifier.height(3.dp))
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                visualTransformation = if (password && !reveal) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+                cursorBrush = SolidColor(c.mintDeep),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.ink,
+                ),
+                decorationBox = { inner ->
+                    if (value.isEmpty()) {
+                        Text(if (password) "••••••••" else "you@example.com",
+                            fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 15.sp, color = c.inkFaint)
+                    }
+                    inner()
+                },
+            )
+        }
+        if (password) {
+            Text(
+                if (reveal) "🙈" else "👁️",
+                fontSize = 18.sp,
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).clickable { reveal = !reveal }.padding(6.dp),
+            )
+        }
     }
 }

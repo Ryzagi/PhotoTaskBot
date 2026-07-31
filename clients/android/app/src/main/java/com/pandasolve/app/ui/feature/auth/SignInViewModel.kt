@@ -24,6 +24,9 @@ data class SignInState(
     val busy: Boolean = false,
     val signedIn: Boolean = false,
     val error: AuthError? = null,
+    // Short raw cause (class + message) shown under UNKNOWN errors during beta
+    // so testers can screenshot the real reason (no Sentry DSN in these builds).
+    val errorDetail: String? = null,
     // True after sign-up when Supabase requires email confirmation (no session yet).
     val pendingConfirmation: Boolean = false,
 )
@@ -76,7 +79,10 @@ class SignInViewModel @Inject constructor(
                         _state.update { it.copy(busy = false, pendingConfirmation = true) }
                     }
                 }
-                .onFailure { e -> _state.update { it.copy(busy = false, error = e.toAuthError()) } }
+                .onFailure { e ->
+                    Timber.w(e, "sign-up failed")
+                    _state.update { it.copy(busy = false, error = e.toAuthError(), errorDetail = e.shortDetail()) }
+                }
         }
     }
 
@@ -86,13 +92,16 @@ class SignInViewModel @Inject constructor(
 
     private fun launchSignIn(block: suspend () -> Unit) {
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, pendingConfirmation = false) }
+            _state.update { it.copy(busy = true, error = null, errorDetail = null, pendingConfirmation = false) }
             runCatching { block() }
                 .onSuccess {
                     registerFcm()
                     _state.update { it.copy(busy = false, signedIn = true) }
                 }
-                .onFailure { e -> _state.update { it.copy(busy = false, error = e.toAuthError()) } }
+                .onFailure { e ->
+                    Timber.w(e, "sign-in failed")
+                    _state.update { it.copy(busy = false, error = e.toAuthError(), errorDetail = e.shortDetail()) }
+                }
         }
     }
 
@@ -104,4 +113,13 @@ class SignInViewModel @Inject constructor(
             Timber.w(t, "FCM token registration failed (non-fatal)")
         }
     }
+}
+
+
+/** Compact "ClassName: message" for beta diagnostics (max ~90 chars). */
+private fun Throwable.shortDetail(): String {
+    val root = generateSequence(this) { it.cause }.last()
+    val name = root::class.simpleName ?: "Error"
+    val msg = root.message?.take(70)?.trim().orEmpty()
+    return if (msg.isEmpty()) name else "$name: $msg"
 }
