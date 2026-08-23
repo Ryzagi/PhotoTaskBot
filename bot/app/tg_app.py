@@ -3,36 +3,37 @@ import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 
 import routers
-import subprocess
-import tempfile
-import shutil
-
 from aiogram import Bot, Dispatcher, exceptions
 from aiogram.client.default import DefaultBotProperties
-from aiogram.client.session import aiohttp
 from aiogram.enums import ParseMode
-from aiogram.types import Message, BufferedInputFile, InputFile
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiohttp import ClientTimeout
+from aiogram.types import BufferedInputFile, Message
+from dotenv import load_dotenv
+
 from bot.constants import (
-    DOWNLOAD_ENDPOINT,
-    SOLVE_ENDPOINT,
-    GET_EXIST_SOLUTION_ENDPOINT,
+    DAILY_LIMIT_EXCEEDED_MESSAGE,
+    INTERNAL_ADD_SUBS_FOR_ALL_ENDPOINT,
+    INTERNAL_GET_EXISTING_ENDPOINT,
+    INTERNAL_LATEX_TO_TEXT_ENDPOINT,
+    INTERNAL_SOLVE_IMAGE_ENDPOINT,
+    INTERNAL_SOLVE_TEXT_ENDPOINT,
+    INTERNAL_UPLOAD_ENDPOINT,
+    INTERNAL_USERS_LIST_ENDPOINT,
     LOADING_MESSAGE,
     NETWORK,
-    DAILY_LIMIT_EXCEEDED_MESSAGE,
-    TEXT_SOLVE_ENDPOINT,
-    LATEX_TO_TEXT_SOLVE_ENDPOINT,
-    GET_ALL_USER_IDS,
-    ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS,
 )
 from bot.fluent_loader import get_fluent_localization
+from bot.internal_client import InternalClient
 from bot.latex_renderer import latex_renderer
 from bot.localization import L10nMiddleware
-from dotenv import load_dotenv
+
+INTERNAL_BASE = f"http://{NETWORK}:8000"
 
 load_dotenv()
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -177,117 +178,99 @@ def render_solution_to_png(solution):
     raise RuntimeError("All LaTeX render attempts failed:\n" + "\n---\n".join(errors))
 
 
+def _photo_bytes(photo_io) -> bytes:
+    """Normalize aiogram's BytesIO-like photo objects to raw bytes."""
+    if isinstance(photo_io, (bytes, bytearray)):
+        return bytes(photo_io)
+    if hasattr(photo_io, "read"):
+        try:
+            photo_io.seek(0)
+        except Exception:
+            pass
+        return photo_io.read()
+    return bytes(photo_io)
+
+
 async def save_image(path, photo_io, user_id):
-    async with aiohttp.ClientSession() as session:
-        data = aiohttp.FormData()
-        data.add_field("image_path", path)
-        data.add_field(
-            "file", photo_io, filename="image.jpg", content_type="image/jpeg"
+    """Upload an image to storage with quota check (was /tasker/api/download_image)."""
+    body = _photo_bytes(photo_io)
+    async with InternalClient(INTERNAL_BASE) as client:
+        _, answer = await client.post_multipart(
+            INTERNAL_UPLOAD_ENDPOINT,
+            fields={"image_path": path, "telegram_user_id": str(user_id)},
+            file=("file", "image.jpg", body, "image/jpeg"),
         )
-        data.add_field("user_id", user_id)
-
-        async with session.post(
-                f"http://{NETWORK}:8000{DOWNLOAD_ENDPOINT}", data=data
-        ) as response:
-            answer = await response.json()
-            print("Answer", answer)
-            if "error" in answer:
-                status_code_str = answer["error"].replace("'", '"')
-                print("Status code str", status_code_str)
-                status_code = json.loads(status_code_str)
-                print("Status code", status_code)
-                if status_code["statusCode"] != 200:
-                    print("Response", response), print("Answer", answer)
-                    if status_code["error"] == "Duplicate":
-                        return answer["message"], answer["status_code"], answer["error"]
-                    if status_code["error"] == "Daily limit exceeded":
-                        return answer["message"], answer["status_code"], answer["error"]
-
-    return answer["message"], answer["status_code"], False
+    print("Answer", answer)
+    if not isinstance(answer, dict):
+        return "upload failed", 500, "upload"
+    code = answer.get("status_code", 500)
+    if code == 429:
+        return answer.get("message"), 429, "Daily limit exceeded"
+    if code != 200:
+        return answer.get("message"), code, answer.get("error", "upload_failed")
+    return answer.get("message"), 200, False
 
 
 async def text_solution(text, user_id):
-    async with aiohttp.ClientSession() as session:
-        data = aiohttp.FormData()
-        data.add_field("text", text)
-        data.add_field("user_id", user_id)
-
-        async with session.post(
-                f"http://{NETWORK}:8000{TEXT_SOLVE_ENDPOINT}", data=data
-        ) as response:
-            answer = await response.json()
-            print("Answer", answer)
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get solution. Status code: {response.status}"
-                )
-            if answer["answer"] == 429:
-                return None
-    print(answer["answer"])
-    return answer["answer"]
+    async with InternalClient(INTERNAL_BASE, timeout_seconds=5 * 60) as client:
+        status, answer = await client.post_form(
+            INTERNAL_SOLVE_TEXT_ENDPOINT,
+            fields={"text": text, "telegram_user_id": str(user_id)},
+        )
+    print("Answer", answer)
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to get solution. Status code: {status}")
+    if answer.get("error") == "daily_limit_reached":
+        return None
+    return answer.get("answer")
 
 
 async def latex_to_text_solution(latex, user_id):
-    async with aiohttp.ClientSession() as session:
-        data = aiohttp.FormData()
-        data.add_field("text", latex)
-        data.add_field("user_id", user_id)
-
-        async with session.post(
-                f"http://{NETWORK}:8000{LATEX_TO_TEXT_SOLVE_ENDPOINT}", data=data
-        ) as response:
-            answer = await response.json()
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get solution. Status code: {response.status}"
-                )
+    async with InternalClient(INTERNAL_BASE, timeout_seconds=5 * 60) as client:
+        status, answer = await client.post_form(
+            INTERNAL_LATEX_TO_TEXT_ENDPOINT,
+            fields={"text": latex, "telegram_user_id": str(user_id)},
+        )
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to get solution. Status code: {status}")
     print("Text sent to Gemini")
-    print(answer["answer"])
-    return answer["answer"]
+    print(answer.get("answer"))
+    return answer.get("answer")
 
 
 async def get_solution(path, photo_io, user_id, text=None):
-    async with aiohttp.ClientSession(timeout=ClientTimeout(5 * 60)) as session:
-        data = aiohttp.FormData()
-        data.add_field("image_path", path)
-        data.add_field(
-            "file", photo_io, filename="image.jpg", content_type="image/jpeg"
+    body = _photo_bytes(photo_io)
+    fields = {"telegram_user_id": str(user_id)}
+    if text:
+        fields["caption"] = text
+    async with InternalClient(INTERNAL_BASE, timeout_seconds=5 * 60) as client:
+        status, answer = await client.post_multipart(
+            INTERNAL_SOLVE_IMAGE_ENDPOINT,
+            fields=fields,
+            file=("file", "image.jpg", body, "image/jpeg"),
         )
-        data.add_field("user_id", user_id)
-        if text:
-            data.add_field("text", text)
-
-        async with session.post(
-                f"http://{NETWORK}:8000{SOLVE_ENDPOINT}", data=data
-        ) as response:
-            answer = await response.json()
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get solution. Status code: {response.status}"
-                )
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to get solution. Status code: {status}")
+    if answer.get("error") == "daily_limit_reached":
+        return None
     print("Image sent to OpenAI")
-    print(answer["answer"])
-    return answer["answer"]
+    print(answer.get("answer"))
+    return answer.get("answer")
 
 
 async def get_exist_solution(path, user_id):
-    async with aiohttp.ClientSession(timeout=ClientTimeout(5 * 60)) as session:
-        data = aiohttp.FormData()
-        data.add_field("image_path", path)
-        data.add_field("user_id", user_id)
-
-        async with session.post(
-                f"http://{NETWORK}:8000{GET_EXIST_SOLUTION_ENDPOINT}", data=data
-        ) as response:
-            answer = await response.json()
-            print("Answer", answer)
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get solution. Status code: {response.status}"
-                )
+    async with InternalClient(INTERNAL_BASE, timeout_seconds=5 * 60) as client:
+        status, answer = await client.post_form(
+            INTERNAL_GET_EXISTING_ENDPOINT,
+            fields={"image_path": path, "telegram_user_id": str(user_id)},
+        )
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to get solution. Status code: {status}")
     print("Got existing solution")
-    print("Answer:", answer["answer"])
-    return answer["answer"]["message"][0]["solution"]
+    rows = answer.get("message") or []
+    if not rows:
+        return None
+    return rows[0].get("solution")
 
 
 def _prepare_latex_document(solution):
@@ -456,7 +439,7 @@ def render_latex_to_image(latex_code):
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            print(f"LaTeX compilation failed")
+            print("LaTeX compilation failed")
             print(f"Return code: {process.returncode}")
             print(f"stdout: {stdout.decode('utf-8')}")
             print(f"stderr: {stderr.decode('utf-8')}")
@@ -479,7 +462,7 @@ def render_latex_to_image(latex_code):
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            print(f"PDF to image conversion failed")
+            print("PDF to image conversion failed")
             print(f"Return code: {process.returncode}")
             print(f"stdout: {stdout.decode('utf-8')}")
             print(f"stderr: {stderr.decode('utf-8')}")
@@ -523,7 +506,7 @@ def regenerate_latex(solution):
     return header + "\n".join(body) + footer
 
 
-from bot.latex_renderer import latex_renderer, LatexCompilationError
+from bot.latex_renderer import LatexCompilationError
 
 
 async def send_solution_to_user(message, answer):
@@ -546,8 +529,8 @@ async def send_solution_to_user(message, answer):
                 caption=f"Solution for user: {message.from_user.id}, @{message.from_user.username}",
             )
         except LatexCompilationError as e:
-            print(f"LaTeX error: {str(e)}\nSTDOUT: {e.stdout[:500]}\nSTDERR: {e.stderr[:500]}")
-            await message.answer(f"Проблема с LaTeX. Отправляю текст:")
+            print(f"LaTeX error: {e!s}\nSTDOUT: {e.stdout[:500]}\nSTDERR: {e.stderr[:500]}")
+            await message.answer("Проблема с LaTeX. Отправляю текст:")
             await send_text_solution_to_user(message, json.dumps({"solutions": [solution]}))
         except Exception as e:
             logging.exception(f"Unexpected rendering error: {e}")
@@ -579,7 +562,7 @@ async def process_photo_message(message: Message):
         print(f"File name: {file_name}")
         path = f"{user_id}/{file_name}"
         photo_to_save = await bot.download(message.photo[-1])
-        print(f"Photo saved in memory")
+        print("Photo saved in memory")
         message_text, status_code, error = await save_image(
             path=path, photo_io=photo_to_save, user_id=str(user_id)
         )
@@ -623,7 +606,7 @@ def escape_markdown(text):
     if not isinstance(text, str):
         text = str(text)
     escape_chars = r"\_*[]()~`>#+-=|{}.!"
-    return re.sub(r"([{}])".format(re.escape(escape_chars)), r"\\\1", text)
+    return re.sub(rf"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 
 def _extract_item_content(item):
@@ -672,7 +655,7 @@ async def send_text_solution_to_user(message, answer):
         message_to_send = (
                 f"*Задание:* {problem}\n\n"
                 f"*Решение:*\n" + "\n\n".join(step_lines) + "\n\n"
-                                                            f"*Ответ:*\n" + "\n".join(final_lines)
+                                                            "*Ответ:*\n" + "\n".join(final_lines)
         )
 
         if len(message_to_send) <= MAX_MESSAGE_LENGTH:
@@ -742,33 +725,26 @@ async def process_text_message(message: Message):
 
 
 async def notify_all_users(message: Message):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                f"http://{NETWORK}:8000{GET_ALL_USER_IDS}",
-                json={"user_id": str(message.from_user.id)},
-        ) as response:
-            answer = await response.json()
-            print(answer)
-            text_message = message.text.split(" = ")[1]
-            print(text_message)
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get balance. Status code: {response.status}"
-                )
-            await bot.send_message(ADMIN_TG_ID, text_message)
-            for user in answer["message"]:
-                try:
-                    await bot.send_message(user["user_id"], text_message)
-                    await bot.send_message(
-                        ADMIN_TG_ID, f"Message sent to user {user['user_id']}"
-                    )
-                except exceptions.TelegramForbiddenError:
-                    print(f"User {user['user_id']} has blocked the bot. Skipping.")
-                except exceptions.TelegramAPIError as e:
-                    print(
-                        f"Failed to send message to {user['user_id']} due to Telegram API error: {e}"
-                    )
-                await asyncio.sleep(0.2)
+    async with InternalClient(INTERNAL_BASE) as client:
+        status, answer = await client.post_json(INTERNAL_USERS_LIST_ENDPOINT)
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to list users. Status code: {status}")
+    text_message = message.text.split(" = ")[1]
+    print(text_message)
+    await bot.send_message(ADMIN_TG_ID, text_message)
+    for user in answer.get("message", []):
+        try:
+            await bot.send_message(user["user_id"], text_message)
+            await bot.send_message(
+                ADMIN_TG_ID, f"Message sent to user {user['user_id']}"
+            )
+        except exceptions.TelegramForbiddenError:
+            print(f"User {user['user_id']} has blocked the bot. Skipping.")
+        except exceptions.TelegramAPIError as e:
+            print(
+                f"Failed to send message to {user['user_id']} due to Telegram API error: {e}"
+            )
+        await asyncio.sleep(0.2)
 
 
 async def notify_user(message: Message):
@@ -787,34 +763,29 @@ async def notify_user(message: Message):
 
 
 async def add_subscription_limits_for_all_users(limit):
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                f"http://{NETWORK}:8000{ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS}",
-                json={"user_id": ADMIN_TG_ID, "limit": limit},
-        ) as response:
-            answer = await response.json()
-            print(answer)
-            if response.status != 200:
-                raise Exception(
-                    f"Failed to get balance. Status code: {response.status}"
-                )
-            for user in answer["message"]:
-                try:
-                    await bot.send_message(
-                        user["user_id"],
-                        "Бесплатно добавлены донатные решения! Проверь свой баланс /balance",
-                    )
-                    await bot.send_message(
-                        ADMIN_TG_ID,
-                        f"Лимит решений для пользователя {user['user_id']} увеличен!",
-                    )
-                except exceptions.TelegramForbiddenError:
-                    print(f"User {user['user_id']} has blocked the bot. Skipping.")
-                except exceptions.TelegramAPIError as e:
-                    print(
-                        f"Failed to send message to {user['user_id']} due to Telegram API error: {e}"
-                    )
-                await asyncio.sleep(0.2)
+    async with InternalClient(INTERNAL_BASE) as client:
+        status, answer = await client.post_json(
+            INTERNAL_ADD_SUBS_FOR_ALL_ENDPOINT, {"limit": int(limit)},
+        )
+    if status != 200 or not isinstance(answer, dict):
+        raise Exception(f"Failed to bulk add subscriptions. Status code: {status}")
+    for user in answer.get("message", []):
+        try:
+            await bot.send_message(
+                user["user_id"],
+                "Бесплатно добавлены донатные решения! Проверь свой баланс /balance",
+            )
+            await bot.send_message(
+                ADMIN_TG_ID,
+                f"Лимит решений для пользователя {user['user_id']} увеличен!",
+            )
+        except exceptions.TelegramForbiddenError:
+            print(f"User {user['user_id']} has blocked the bot. Skipping.")
+        except exceptions.TelegramAPIError as e:
+            print(
+                f"Failed to send message to {user['user_id']} due to Telegram API error: {e}"
+            )
+        await asyncio.sleep(0.2)
 
 
 async def main() -> None:

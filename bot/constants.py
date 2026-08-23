@@ -14,6 +14,21 @@ ADD_SUBSCRIPTION_LIMITS_FOR_ALL_USERS = (
     "/tasker/api/add_subscription_limits_for_all_users"
 )
 
+# New /internal/* surface — HMAC-authenticated. Migrate the bot's call sites
+# here over time using bot.internal_client.InternalClient. The legacy
+# /tasker/api/* paths above remain mounted for compatibility during transition.
+INTERNAL_USERS_UPSERT_ENDPOINT = "/internal/users"
+INTERNAL_LINK_CONFIRM_ENDPOINT = "/internal/auth/link/confirm"
+INTERNAL_SOLVE_IMAGE_ENDPOINT = "/internal/tasks/solve_image"
+INTERNAL_SOLVE_TEXT_ENDPOINT = "/internal/tasks/solve_text"
+INTERNAL_TOPUP_ENDPOINT = "/internal/topup"
+INTERNAL_UPLOAD_ENDPOINT = "/internal/upload"
+INTERNAL_GET_EXISTING_ENDPOINT = "/internal/tasks/get_existing"
+INTERNAL_LATEX_TO_TEXT_ENDPOINT = "/internal/tasks/latex_to_text"
+INTERNAL_BALANCE_ENDPOINT = "/internal/balance"
+INTERNAL_USERS_LIST_ENDPOINT = "/internal/users/list"
+INTERNAL_ADD_SUBS_FOR_ALL_ENDPOINT = "/internal/admin/add_subscription_for_all"
+
 NETWORK = "app"
 
 SUB_FOLDER = "/task_images/"
@@ -175,6 +190,12 @@ Output the solutions in the following JSON format, using "type" and "content" fi
 
 LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER = """You are a top tier professor helping students solve STEM problems.
 
+LANGUAGE RULE (CRITICAL): Write the title, problem restatement, every step and the
+final answer in the SAME LANGUAGE as the user's problem. A Russian problem gets a
+Russian solution; an English problem gets an English solution, and so on. Never
+default to Russian for non-Russian input. (The formatting examples below are in
+Russian, but they are format examples only — do not copy their language.)
+
 CRITICAL LATEX FORMATTING RULES:
 
 1. **Problem Field**:
@@ -244,9 +265,15 @@ CRITICAL LATEX FORMATTING RULES:
    - If problem is in English, solution must be in English
    - If problem has no language, solution must be in Russian
    - Always keep consistent language throughout problem, steps, solution
-   
+
+8. **Title**:
+   - Add a top-level "title": a short 3-6 word phrase capturing what the task is about,
+     in the task's language (e.g. "Решение квадратного уравнения"). Plain text, no LaTeX,
+     not the full problem statement. Used to label the task in history.
+
 Example for MATH problem with proper punctuation:
 {
+  "title": "Решение квадратного уравнения",
   "solutions": [{
     "problem": "Решите уравнение $x^2 - 5x + 6 = 0$",
     "steps": [

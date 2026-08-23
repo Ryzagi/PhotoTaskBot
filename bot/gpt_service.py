@@ -3,13 +3,15 @@ import base64
 import json
 import time
 from json import JSONDecodeError
-from typing import Dict
 
 import httpx
 from openai import AsyncOpenAI
 
-from bot.constants import GPT_MODEL, TASK_HELPER_PROMPT_TEMPLATE_USER, TEXT_TASK_HELPER_PROMPT_TEMPLATE_USER, \
-    OPENAI_OUTPUT_FORMAT, LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER
+from bot.constants import (
+    GPT_MODEL,
+    LATEX_TASK_HELPER_PROMPT_TEMPLATE_USER,
+    OPENAI_OUTPUT_FORMAT,
+)
 
 
 class TaskSolverGPT:
@@ -96,7 +98,7 @@ class TaskSolverGPT:
     def parse_output_json(
         self,
         response: str,
-    ) -> Dict:
+    ) -> dict:
         """
         Parse response from OpenAI API.
         Args:
@@ -148,3 +150,53 @@ class TaskSolverGPT:
         print("GPT TEXT result:", output_text)
         parsed_result = self.parse_output_json(output_text)
         return parsed_result
+
+    async def generate_chat_reply(
+        self, problem: str, solution_text: str, history: list[dict], question: str,
+    ) -> str:
+        """Follow-up Q&A about an already-solved task. Plain text, in the question's language."""
+        system = (
+            "Ты — дружелюбный преподаватель. Кратко и по делу отвечай на уточняющие вопросы "
+            "по уже решённой задаче. Отвечай на языке вопроса. Математику оформляй в $...$."
+        )
+        convo: list[dict] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Задача:\n{problem}\n\nРешение:\n{solution_text}"},
+        ]
+        for m in history:
+            convo.append({"role": m["role"], "content": m["content"]})
+        convo.append({"role": "user", "content": question})
+        response = await self.client.responses.create(
+            model=GPT_MODEL,
+            input=convo,
+            reasoning={"effort": "minimal"},
+        )
+        return response.output_text
+
+    async def generate_chat_reply_image(
+        self, problem: str, solution_text: str, history: list[dict], image_bytes: bytes, caption: str,
+    ) -> str:
+        """Same as generate_chat_reply but the user attached an image (vision context)."""
+        image_base64 = await self.encode_image(image_bytes)
+        system = (
+            "Ты — дружелюбный преподаватель. Пользователь приложил фото как контекст к "
+            "уже решённой задаче. Кратко и по делу ответь на языке вопроса; математику в $...$."
+        )
+        convo: list[dict] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Задача:\n{problem}\n\nРешение:\n{solution_text}"},
+        ]
+        for m in history:
+            convo.append({"role": m["role"], "content": m["content"]})
+        user_content: list[dict] = [
+            {"type": "input_image", "image_url": f"data:image/jpeg;base64,{image_base64}"},
+        ]
+        if caption:
+            user_content.append({"type": "input_text", "text": caption})
+        convo.append({"role": "user", "content": user_content})
+        response = await self.client.responses.create(
+            model=GPT_MODEL,
+            input=convo,
+            reasoning={"effort": "minimal"},
+        )
+        return response.output_text

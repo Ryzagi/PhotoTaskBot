@@ -1,0 +1,29 @@
+# Trim the Docker build context — the backend image only needs bot/ + packaging.
+# clients/ is ~260 MB (Android/iOS trees + build outputs) and never used at runtime.
+.git
+.gitignore
+clients/
+docs/
+tests/
+*.apk
+
+# Secrets are provided via compose `env_file: .env`, never baked into the image.
+.env
+.env.*
+!.env.example
+
+# Python / tooling caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

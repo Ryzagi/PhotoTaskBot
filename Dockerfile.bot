@@ -1,0 +1,23 @@
+# Image for the Telegram bot (bot/app/tg_app.py), which renders solutions to PNG
+# via pdflatex + pdftoppm (bot/latex_renderer.py) — hence the TeX Live deps.
+# The FastAPI app/worker do NOT need these; they build from the lean Dockerfile.
+
+FROM python:3.11-slim-bookworm
+
+WORKDIR /app
+COPY . /app
+RUN pip install .
+
+# LaTeX (pdflatex) + poppler (pdftoppm) for the bot's image rendering.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    texlive-latex-base \
+    texlive-latex-extra \
+    texlive-lang-cyrillic \
+    texlive-fonts-recommended \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+RUN mktexlsr
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "bot/app/tg_app.py"]
