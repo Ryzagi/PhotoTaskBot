@@ -13,15 +13,18 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: clients/ios
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+      # No Xcode pin: Package.resolved is written by a Swift 6.x toolchain (schema
+      # v3, sentry-cocoa's Package@swift-6.1.swift), which Xcode 15.4 / Swift 5.10
+      # can't read. Use whatever Xcode the runner image ships as default.
+      - name: Show toolchain
+        run: xcodebuild -version && swift --version
 
       - name: SwiftLint
         run: |

@@ -27,7 +27,7 @@ let package = Package(
                 .product(name: "Supabase", package: "supabase-swift"),
                 .product(name: "iosMath", package: "iosMath"),
                 .product(name: "Sentry", package: "sentry-cocoa"),
-                .product(name: "PostHog", package: "posthog-ios"),®
+                .product(name: "PostHog", package: "posthog-ios"),
                 .product(name: "KeychainAccess", package: "KeychainAccess"),
             ],
             path: "PandaSolve",

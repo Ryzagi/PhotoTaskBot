@@ -28,12 +28,16 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # clients/android/gradle.properties pins org.gradle.java.home to a local
+      # Homebrew JDK 17 (dev machines run a system JDK 25/26 that AGP 8.5 rejects).
+      # That path doesn't exist here, so override it with the JDK setup-java just
+      # installed — a command-line -D beats the project gradle.properties.
       - name: Lint
-        run: ./gradlew --no-daemon lintDevDebug || true
+        run: ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" lintDevDebug || true
 
       - name: Build debug
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://example.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'placeholder' }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_ANDROID || '' }}
-        run: ./gradlew --no-daemon :app:assembleDevDebug
+        run: ./gradlew --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" :app:assembleDevDebug
