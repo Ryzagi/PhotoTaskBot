@@ -12,8 +12,6 @@ import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
-import com.android.billingclient.api.consumePurchase
-import com.android.billingclient.api.queryProductDetails
 import com.pandasolve.app.data.repository.BillingRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -71,6 +69,9 @@ class BillingManager @Inject constructor(
     private val client = BillingClient.newBuilder(context)
         .setListener(listener)
         .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+        // Billing 8: let the library re-establish the service connection itself
+        // instead of leaving the client dead after onBillingServiceDisconnected.
+        .enableAutoServiceReconnection()
         .build()
 
     /** Connect (idempotent) and refresh the product list. Call when the top-up UI opens. */
@@ -91,25 +92,26 @@ class BillingManager @Inject constructor(
     }
 
     private fun queryProducts() {
-        scope.launch {
-            val params = QueryProductDetailsParams.newBuilder()
-                .setProductList(
-                    PRODUCT_IDS.map { id ->
-                        QueryProductDetailsParams.Product.newBuilder()
-                            .setProductId(id)
-                            .setProductType(BillingClient.ProductType.INAPP)
-                            .build()
-                    },
-                ).build()
-            runCatching { client.queryProductDetails(params) }
-                .onSuccess { res ->
-                    if (res.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                        _products.value = (res.productDetailsList ?: emptyList()).sortedBy { it.productId }
-                    } else {
-                        Timber.w("queryProductDetails: ${res.billingResult.debugMessage}")
-                    }
-                }
-                .onFailure { Timber.w(it, "queryProductDetails failed") }
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(
+                PRODUCT_IDS.map { id ->
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId(id)
+                        .setProductType(BillingClient.ProductType.INAPP)
+                        .build()
+                },
+            ).build()
+        client.queryProductDetailsAsync(params) { result, queryResult ->
+            if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+                Timber.w("queryProductDetails: ${result.debugMessage}")
+                return@queryProductDetailsAsync
+            }
+            // Billing 8 reports products it could not fetch separately instead of
+            // silently dropping them — worth a log line when a pack goes missing.
+            queryResult.unfetchedProductList.forEach {
+                Timber.w("product not fetched: ${it.productId} (${it.statusCode})")
+            }
+            _products.value = queryResult.productDetailsList.sortedBy { it.productId }
         }
     }
 
@@ -138,11 +140,13 @@ class BillingManager @Inject constructor(
                 return@launch
             }
             // Consume so the pack can be bought again. (Backend already granted credits.)
-            runCatching {
-                client.consumePurchase(
-                    ConsumeParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build(),
-                )
-            }.onFailure { Timber.w(it, "consume failed") }
+            client.consumeAsync(
+                ConsumeParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build(),
+            ) { res, _ ->
+                if (res.responseCode != BillingClient.BillingResponseCode.OK) {
+                    Timber.w("consume failed: ${res.debugMessage}")
+                }
+            }
             _events.tryEmit(BillingEvent.Success(productId))
         }
     }

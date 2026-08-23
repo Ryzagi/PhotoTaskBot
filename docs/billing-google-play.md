@@ -40,7 +40,9 @@ consumes/acknowledges. All entitlement is server-decided.
 - Reuse `BillingService.add_subscription` for crediting; add `set_premium`/daily-limit bump for subs.
 
 ## Android (code)
-- Dep: `com.android.billingclient:billing-ktx`.
+- Dep: `com.android.billingclient:billing` (plain Java artifact — `billing-ktx` ≥ 8.1.0
+  ships Kotlin 2.2 metadata that the Kotlin 2.0.20 compiler here cannot read). Play requires
+  ≥ 8.0.0 from Aug 31 2026.
 - **`BillingRepository`:** connect `BillingClient`; `queryProductDetails` (INAPP packs + SUBS);
   `launchBillingFlow`; on `PurchasesUpdated` → POST token to backend verify → on success
   `consumeAsync` (consumables) / `acknowledgePurchase` (subs) → refresh `/v1/me`.

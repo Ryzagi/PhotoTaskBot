@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import PhotosUI
+import UIKit
 
 struct SolveView: View {
     @Environment(AppEnvironment.self) private var env
@@ -85,8 +86,18 @@ struct SolveView: View {
         VStack(spacing: 10) {
             Text(t.cameraPermTitle).font(caveat(24, .bold)).foregroundStyle(.white)
             Text(t.cameraPermSubtitle).font(nunito(13, .semibold)).foregroundStyle(.white.opacity(0.7))
-            CandyButton(text: t.cameraPermAllow) { Task { await camera.start() } }
-                .frame(width: 220).padding(.top, 10)
+            CandyButton(text: t.cameraPermAllow) {
+                if AVCaptureDevice.authorizationStatus(for: .video) == .denied {
+                    // Permanently denied: the system dialog won't reappear —
+                    // send the user to the app's Settings page instead.
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } else {
+                    Task { await camera.start() }
+                }
+            }
+            .frame(width: 220).padding(.top, 10)
             Text(t.cameraOrType).font(caveat(17, .semibold)).foregroundStyle(c.lav)
                 .onTapGesture { mode = "text" }.padding(.top, 4)
         }

@@ -57,6 +57,14 @@
             </intent-filter>
         </service>
 
+        <!-- Android 16 (targetSdk 36) ignores android:screenOrientation on displays
+             >=600dp. Our screens are drawn portrait-only, so keep the old behaviour
+             for now. The opt-out stops working at targetSdk 37 — the layouts have to
+             handle landscape/tablet by then. -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
+
         <!-- Disable Sentry's auto-init ContentProvider; we init manually in
              App.onCreate() from BuildConfig.SENTRY_DSN so dev builds without
              a DSN don't crash before the app even reaches our code. -->

@@ -511,7 +511,7 @@ being created in Play Console). The app must switch its monetization UX from Tel
 to Play top-ups.
 
 ## R4-0. Play top-up sheet (foundation — others depend on it)
-- BillingManager (billing-ktx 7.1.1, dep already added): connect → queryProductDetails for
+- BillingManager (billing 8.3.0, dep already added): connect → queryProductDetails for
   bamboo_20/50/100 → launchBillingFlow → on purchase POST token to /v1/billing/google/verify
   → consume → refresh balance. A cute Top-up sheet listing the packs with Play prices.
   Entry points: Profile "Пополнить бамбук" row, bamboo card ＋, achievements dialog, chat CTA.

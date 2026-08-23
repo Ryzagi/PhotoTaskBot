@@ -28,11 +28,11 @@ fun envProp(key: String, default: String = ""): String =
 
 android {
     namespace = "com.pandasolve.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Each Play upload needs a unique, higher code. Bump VERSION_CODE in
         // local.properties (or set CI_BUILD_NUMBER) before each upload.
         // Play requires a strictly higher versionCode per upload. Bump VERSION_CODE in
@@ -197,7 +197,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     // Google Play Billing — in-app purchases (adds the BILLING permission to the manifest).
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    // Plain (Java) artifact, not billing-ktx: from 8.1.0 the -ktx AAR is compiled with
+    // Kotlin 2.2 metadata, which the Kotlin 2.0.20 compiler here refuses to read.
+    implementation("com.android.billingclient:billing:8.3.0")
 
     // implementation(libs.math.view) // TODO: JitPack unavailable, re-enable when fixed
     implementation(libs.sentry.android)
