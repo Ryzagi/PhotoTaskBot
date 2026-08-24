@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PandaSolve" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@android:color/white</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
-    </style>
+    <!-- No android:statusBarColor / android:navigationBarColor: both are deprecated
+         and ignored from Android 15 for apps targeting SDK 35+, and Play Console
+         flags them ("Edge-to-edge may not display for all users"). The bars are
+         transparent under enableEdgeToEdge(); icon colours are set from
+         MainActivity so they follow the in-app light/dark toggle. -->
+    <style name="Theme.PandaSolve" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
-
