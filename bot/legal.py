@@ -4,6 +4,8 @@ they render without any assets and can be linked from the app + Play Console.
 NOTE: review with counsel before launch and set a real CONTACT_EMAIL.
 """
 
+import json
+
 CONTACT_EMAIL = "ryzagidev@gmail.com"
 
 PRIVACY_HTML = f"""<!doctype html>
@@ -234,3 +236,153 @@ DELETE_ACCOUNT_HTML = f"""<!doctype html>
 </div>
 </body>
 </html>"""
+
+
+# Where the Supabase password-recovery email lands (GET /auth/reset).
+#
+# Unlike the other pages here this one is a function, not a constant: it has to
+# bake in the project URL and anon key so the browser can call Supabase directly.
+# Both are public values (the Android app ships the same anon key), but they are
+# environment-specific, so they arrive as arguments and keep this module free of
+# env reads.
+#
+# The token arrives in the URL *fragment* (Supabase implicit flow), which never
+# reaches the server — so the exchange has to happen in the page. SupabaseAuth.kt
+# pins `flowType = IMPLICIT` for exactly this reason; PKCE would put a `?code=`
+# here whose verifier only exists on the phone that asked, breaking the common
+# "open the email on my laptop" case.
+_RESET_PASSWORD_TEMPLATE = """<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PandaSolve — новый пароль</title>
+<style>
+  :root { --paper:#FDF6ED; --ink:#4B4138; --soft:#9B9081; --mint:#2F7D5B;
+          --card:#fff; --line:#EFE3D2; --coral:#BF5A41; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; line-height:1.6;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { width:100%; max-width:420px; margin:20px; background:var(--card);
+    border:2px solid var(--line); border-radius:24px; padding:34px 28px; text-align:center; }
+  .badge { font-size:56px; }
+  h1 { font-size:22px; margin:10px 0 6px; color:var(--mint); }
+  p { font-size:15px; margin:6px 0; }
+  .sub { color:var(--soft); font-size:13px; margin-top:14px; }
+  label { display:block; text-align:left; font-size:13px; color:var(--soft); margin:14px 0 4px; }
+  input { width:100%; padding:12px 14px; font-size:16px; color:var(--ink);
+    background:var(--paper); border:2px solid var(--line); border-radius:14px; }
+  input:focus { outline:none; border-color:var(--mint); }
+  button { width:100%; margin-top:18px; padding:14px; font-size:16px; font-weight:700;
+    color:#fff; background:var(--mint); border:none; border-radius:16px; cursor:pointer; }
+  button[disabled] { opacity:.55; cursor:default; }
+  .err { color:var(--coral); font-size:13px; margin-top:12px; min-height:18px; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+
+    <div id="form-view">
+      <div class="badge">🐼🔑</div>
+      <h1>Новый пароль</h1>
+      <p>Придумай новый пароль для входа в PandaSolve.</p>
+      <p class="sub">New password — choose a new password for your PandaSolve account.</p>
+
+      <label for="pw">Новый пароль / New password</label>
+      <input id="pw" type="password" autocomplete="new-password" minlength="6">
+      <label for="pw2">Повтори пароль / Repeat password</label>
+      <input id="pw2" type="password" autocomplete="new-password" minlength="6">
+
+      <button id="go">Сохранить / Save</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div id="done-view" class="hidden">
+      <div class="badge">🐼✅</div>
+      <h1>Пароль сохранён!</h1>
+      <p>Вернись в приложение PandaSolve и войди с новым паролем.</p>
+      <p class="sub">Password updated — open the PandaSolve app and sign in with your new password.</p>
+    </div>
+
+    <div id="dead-view" class="hidden">
+      <div class="badge">🐼⏳</div>
+      <h1>Ссылка не действует</h1>
+      <p>Ссылка для сброса пароля устарела или уже использована.
+         Запроси новую в приложении.</p>
+      <p class="sub">This reset link is expired or already used — request a new one from the app.</p>
+    </div>
+
+  </div>
+<script>
+  var SUPABASE_URL = __SUPABASE_URL__;
+  var ANON_KEY = __ANON_KEY__;
+
+  // Supabase redirects here with #access_token=...&type=recovery. Read it, then
+  // strip the fragment so the token isn't left sitting in the URL bar or history.
+  var token = new URLSearchParams(location.hash.replace(/^#/, "")).get("access_token");
+  history.replaceState(null, "", location.pathname);
+
+  var show = function (id) {
+    ["form-view", "done-view", "dead-view"].forEach(function (v) {
+      document.getElementById(v).classList.toggle("hidden", v !== id);
+    });
+  };
+
+  if (!token) show("dead-view");
+
+  document.getElementById("go").addEventListener("click", function () {
+    var pw = document.getElementById("pw").value;
+    var pw2 = document.getElementById("pw2").value;
+    var err = document.getElementById("err");
+    var btn = document.getElementById("go");
+
+    if (pw.length < 6) {
+      err.textContent = "Минимум 6 символов / at least 6 characters";
+      return;
+    }
+    if (pw !== pw2) {
+      err.textContent = "Пароли не совпадают / passwords don't match";
+      return;
+    }
+
+    err.textContent = "";
+    btn.disabled = true;
+    fetch(SUPABASE_URL + "/auth/v1/user", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": ANON_KEY,
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({ password: pw })
+    }).then(function (res) {
+      if (res.ok) { show("done-view"); return; }
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        btn.disabled = false;
+        // 401/403 means the recovery token is spent or expired — that is a dead
+        // link, not a bad password, so send the user back to the app for a new one.
+        if (res.status === 401 || res.status === 403) { show("dead-view"); return; }
+        err.textContent = body.msg || body.error_description || ("Ошибка / error " + res.status);
+      });
+    }).catch(function () {
+      btn.disabled = false;
+      err.textContent = "Нет соединения / no connection";
+    });
+  });
+</script>
+</body>
+</html>"""
+
+
+def reset_password_html(supabase_url: str, anon_key: str) -> str:
+    """Render the password-recovery page for a given Supabase project.
+
+    `supabase_url` / `anon_key` are JSON-encoded rather than pasted in, so a
+    stray quote in the environment can't break out of the JS string literal and
+    leave a page that throws on load.
+    """
+    return _RESET_PASSWORD_TEMPLATE.replace(
+        "__SUPABASE_URL__", json.dumps(supabase_url)
+    ).replace("__ANON_KEY__", json.dumps(anon_key))

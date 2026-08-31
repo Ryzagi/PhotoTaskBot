@@ -101,6 +101,26 @@ async def auth_confirmed_page():
     return HTMLResponse(CONFIRMED_HTML)
 
 
+# Where the Supabase password-recovery link lands. Add this URL to Supabase Auth
+# → URL Configuration → Redirect URLs, and pass it as `redirectUrl` from the app
+# (SupabaseAuth.resetPassword). The recovery token arrives in the URL fragment, so
+# it never reaches this handler — the page itself does the exchange.
+@app.get("/auth/reset", include_in_schema=False)
+async def auth_reset_page():
+    import os
+
+    from fastapi.responses import HTMLResponse
+
+    from bot.legal import reset_password_html
+
+    return HTMLResponse(
+        reset_password_html(
+            os.environ.get("SUPABASE_URL", ""),
+            os.environ.get("SUPABASE_KEY", ""),
+        )
+    )
+
+
 # Account-deletion instructions (paste this URL into Play Console → Data safety).
 @app.get("/delete-account", include_in_schema=False)
 async def delete_account_page():

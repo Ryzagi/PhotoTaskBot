@@ -1,0 +1,27 @@
+# NOT a standalone Caddyfile — you already run Caddy. Add this block to your
+# EXISTING Caddyfile (next to your web app's block), or `import` this file from it.
+#
+# `pandasolve-api` is the docker network alias defined in docker-compose.yml.
+# If your Caddy runs on the HOST instead of docker, use `reverse_proxy 127.0.0.1:8001`
+# (and bind the app to that port — see the commented `ports:` in docker-compose.yml).
+#
+# Only /v1/*, /healthz and the public legal pages (/privacy, /terms) are exposed.
+# The legacy /tasker/api/* (unauthenticated, spoofable user_id) and /internal/*
+# (bot HMAC) surfaces are never routed here.
+
+panda-api.upword.live {
+	encode zstd gzip
+
+	@public path /v1 /v1/* /healthz /privacy /terms /auth/confirmed /auth/reset /delete-account
+	handle @public {
+		request_body {
+			max_size 10MB        # cap image uploads
+		}
+		reverse_proxy pandasolve-api:8000
+	}
+
+	# Everything else stays private.
+	handle {
+		respond 404
+	}
+}
