@@ -9,6 +9,7 @@ This directory holds the durable specification for PhotoTaskBot as it evolves fr
 - **Building the mobile apps?** Skim `01-overview.md`, then go to [`clients/android.md`](clients/android.md) or [`clients/ios.md`](clients/ios.md). The API contract lives in [`architecture/03-backend-api.md`](architecture/03-backend-api.md) plus the live `openapi.json`.
 - **Running a migration?** [`migrations/`](migrations/) has the step-by-step, rollback, and downtime budget per migration.
 - **On-call?** Start at [`runbooks/on-call-incident.md`](runbooks/on-call-incident.md).
+- **Signup emails not arriving?** [`runbooks/email-smtp-setup.md`](runbooks/email-smtp-setup.md) — Supabase's built-in mailer is capped at 2/hour, so production needs custom SMTP.
 
 ## Document map
 
@@ -31,8 +32,12 @@ docs/
 ├── migrations/
 │   ├── 0001-uuid-users.md             UUID migration, step-by-step + rollback
 │   └── 0002-tasks-history.md          Tasks table history columns
+├── email-templates/
+│   ├── confirm-signup.html            Supabase "Confirm signup" body (RU + EN)
+│   └── reset-password.html            Supabase "Reset password" body (RU + EN)
 └── runbooks/
     ├── deploy-backend.md              Push code to prod
+    ├── email-smtp-setup.md            Custom SMTP (Resend) for signup emails
     ├── rotate-supabase-keys.md        Rotate service-role and JWT secrets
     └── on-call-incident.md            What to do when something is on fire
 ```

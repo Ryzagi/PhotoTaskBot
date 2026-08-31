@@ -1,0 +1,84 @@
+<!--
+  Supabase Auth → Email Templates → "Confirm signup".
+  Paste the <body> content (or the whole file — Supabase tolerates it) into the
+  Message body field. Palette matches bot/legal.py CONFIRMED_HTML, which is the
+  page this link lands on.
+
+  Template variables: {{ .ConfirmationURL }} is the only one used. Do NOT switch
+  to {{ .Token }} unless the app grows an OTP entry screen.
+-->
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PandaSolve</title>
+</head>
+<body style="margin:0; padding:0; background:#FDF6ED;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FDF6ED;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="max-width:480px; background:#ffffff; border:2px solid #EFE3D2; border-radius:24px;">
+          <tr>
+            <td align="center" style="padding:34px 28px 28px 28px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+                color:#4B4138; line-height:1.6;">
+
+              <div style="font-size:56px; line-height:1;">🐼✉️</div>
+
+              <h1 style="margin:14px 0 6px 0; font-size:22px; font-weight:700; color:#2F7D5B;">
+                Подтверди почту
+              </h1>
+              <p style="margin:6px 0 0 0; font-size:15px;">
+                Ты зарегистрировался в PandaSolve. Нажми кнопку ниже — и можно решать задачи.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 8px auto;">
+                <tr>
+                  <td align="center" bgcolor="#2F7D5B" style="border-radius:16px;">
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display:inline-block; padding:14px 30px; font-size:16px; font-weight:700;
+                              color:#ffffff; text-decoration:none;
+                              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                      Подтвердить почту
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0; font-size:13px; color:#9B9081;">Confirm your email</p>
+
+              <hr style="border:none; border-top:1px solid #EFE3D2; margin:26px 0 18px 0;">
+
+              <p style="margin:0; font-size:13px; color:#9B9081;">
+                You signed up for PandaSolve. Tap the button above to confirm your email address,
+                then sign in from the app.
+              </p>
+              <p style="margin:14px 0 0 0; font-size:12px; color:#9B9081;">
+                Кнопка не работает? Скопируй ссылку в браузер —
+                <span style="color:#9B9081;">if the button doesn't work, paste this link into your browser:</span>
+              </p>
+              <p style="margin:6px 0 0 0; font-size:12px; word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" style="color:#2F7D5B;">{{ .ConfirmationURL }}</a>
+              </p>
+
+              <p style="margin:20px 0 0 0; font-size:12px; color:#9B9081;">
+                Если это был не ты — просто проигнорируй письмо.<br>
+                If you didn't sign up, you can safely ignore this email.
+              </p>
+
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin:18px 0 0 0; font-size:12px; color:#9B9081;
+                  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          PandaSolve
+        </p>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

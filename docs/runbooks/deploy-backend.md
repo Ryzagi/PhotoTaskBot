@@ -47,8 +47,11 @@ Supabase (Auth + Postgres + Storage) ── shared, hosted off-box
    # plus existing keys: OPENAI_API_KEY, GOOGLE_API_KEY, SUPABASE_*,
    # TELEGRAM_BOT_TOKEN, INTERNAL_AUTH_SECRET, USER_EMAIL/USER_PASSWORD
    ```
-4. **Caddy block** — add to the Caddyfile that `upword_game-caddy-1` uses (in
-   `~/upword_game`), alongside the upword block. Source: this repo's `./Caddyfile`.
+4. **Caddy block** — add to the Caddyfile that `upword_game-caddy-1` uses,
+   alongside the upword block. Source: this repo's `./Caddyfile`. The file lives at
+   **`/root/upword_game/deploy/Caddyfile`** on the host (bind-mounted to
+   `/etc/caddy/Caddyfile`); confirm with
+   `docker inspect upword_game-caddy-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'`.
    ```caddyfile
    panda-api.upword.live {
        encode zstd gzip
@@ -71,10 +74,39 @@ Supabase (Auth + Postgres + Storage) ── shared, hosted off-box
    `handle { respond 404 }` one-liners (they fail with "Unexpected next token after '{'").
    Reload Caddy (zero downtime):
    ```bash
-   cd ~/upword_game
-   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
-   docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
+   docker exec upword_game-caddy-1 caddy validate --config /etc/caddy/Caddyfile
+   docker exec upword_game-caddy-1 caddy reload   --config /etc/caddy/Caddyfile
    ```
+   `docker exec` on the container name avoids depending on which directory holds the
+   compose file. Prefer `reload` over `restart` — that Caddy also serves `upword.live`.
+
+   **Never edit this file with `sed -i`, `vim`'s default write, or anything that
+   renames a temp file over it.** Compose bind-mounts the *single file*, so Docker
+   wires the container to its **inode**. `sed -i` writes a new file and renames it
+   into place, giving the host path a new inode while the container keeps reading the
+   old one. The failure is silent and very confusing: the host file shows your change,
+   `caddy validate` passes (it validated the *old* content), and `caddy reload` logs
+   **`config is unchanged`** while traffic keeps hitting the old rules. Cost us ~20
+   minutes on 2026-08-31 adding `/auth/reset`.
+
+   Edit in a way that preserves the inode:
+   ```bash
+   CF=/root/upword_game/deploy/Caddyfile
+   sed 's|old|new|' "$CF" > /tmp/cf && cat /tmp/cf > "$CF"    # `cat >` rewrites the same inode
+   ```
+   Validate the real host content without disturbing the running server:
+   ```bash
+   docker run --rm -v /root/upword_game/deploy/Caddyfile:/etc/caddy/Caddyfile:ro \
+     caddy:2.8-alpine caddy validate --config /etc/caddy/Caddyfile
+   ```
+   If the inode has already been replaced, `caddy reload` **cannot** recover it — only
+   `docker restart upword_game-caddy-1` re-establishes the mount (a few seconds of
+   downtime for `upword.live` too). Confirm which content the container actually has:
+   ```bash
+   docker exec upword_game-caddy-1 grep -c '/auth/reset' /etc/caddy/Caddyfile
+   ```
+   The durable fix is to bind-mount the `deploy/` **directory** instead of the single
+   file in `upword_game`'s compose; then this class of bug disappears.
 
 ## Two images (since the apt/TeX split)
 
@@ -158,6 +190,8 @@ expire or `docker compose exec redis redis-cli FLUSHDB` (rollback only, never a 
 |---|---|
 | `502 Bad Gateway` from Caddy | app not on `CADDY_NETWORK`. Check it matches the network from one-time-wiring step 2; `docker network inspect upword_game_default` must list `pandasolve-api`. |
 | `/healthz` returns `404` | rebuild didn't pick up new code, or running legacy `bot.app.app:app`. Check `git log` on server; Dockerfile CMD must be `bot.app.main:app`. |
+| A public path 404s with `content-length: 0` and no `content-type` | Caddy's own `handle { respond 404 }` fallback — the path isn't in `@public`. If it *is* in the host Caddyfile, the container is on a stale inode: see the `sed -i` warning in one-time-wiring step 4. |
+| Same path 404s with `content-type: application/json` and `Server: uvicorn` | Caddy is routing correctly; the **app** lacks the route. Rebuild/redeploy `app`. |
 | `/v1/*` returns `401` for valid users | `SUPABASE_JWT_SECRET` missing/wrong in `.env`. |
 | `500`s right after rebuild | a required env var is missing — the app crashes loudly on startup. Add it to `.env`, `docker compose up -d`. |
 | TLS cert fails on first hit | DNS must resolve (it does) and `:80` must reach the server for the ACME challenge — owned by `upword_game-caddy-1`. |
