@@ -125,8 +125,9 @@ rebuild touches apt.
 From the phototaskbot repo dir on the server:
 
 ```bash
-# 1. Get the new code
-git fetch && git checkout <branch> && git pull        # e.g. master, or feat/mobile-apps-cute-ui
+# 1. Get the new code. **master is the deploy branch** — confirm it, don't assume.
+git fetch && git checkout master && git pull
+git log --oneline -1                                   # must match what you pushed
 
 # 2. Apply additive DB migrations (safe for the live bot; idempotent)
 make migrate                                           # needs DATABASE_URL; or paste bot/migrations/*.sql in Supabase
@@ -143,6 +144,21 @@ docker compose build telegram_bot && docker compose up -d telegram_bot
 
 The entrypoint is `bot.app.main:app` (NOT `bot.app.app:app`, which 404s on `/v1/*`).
 It's baked into the Dockerfile CMD — don't override it.
+
+**Check the branch before spending a build.** The server sat on
+`feat/mobile-apps-cute-ui` for a while, so `git pull` kept updating a branch that had
+none of the new commits — a rebuild then ships old code and succeeds loudly. The
+symptom is a *JSON* 404 with `Server: uvicorn` on a route you know you added. Confirm
+what the running container actually has:
+```bash
+docker exec phototaskbot-app-1 grep -c auth/reset bot/app/main.py    # 0 = wrong code in image
+```
+If `git checkout master` refuses because an untracked `Caddyfile` would be overwritten,
+`mv Caddyfile Caddyfile.server-local` — the live proxy config is
+`/root/upword_game/deploy/Caddyfile`, not the repo copy.
+
+A **502 for the first ~20s** after `up -d app` is normal, not a fault: the app logs in
+to Supabase during startup. Wait before concluding anything from a curl.
 
 ## Verify
 
