@@ -29,6 +29,8 @@ data class SignInState(
     val errorDetail: String? = null,
     // True after sign-up when Supabase requires email confirmation (no session yet).
     val pendingConfirmation: Boolean = false,
+    // True once a password-recovery email has been requested.
+    val resetEmailSent: Boolean = false,
 )
 
 @HiltViewModel
@@ -69,7 +71,7 @@ class SignInViewModel @Inject constructor(
                 _state.update { it.copy(error = AuthError.EMPTY_FIELDS) }
                 return@launch
             }
-            _state.update { it.copy(busy = true, error = null, pendingConfirmation = false) }
+            _state.update { it.copy(busy = true, error = null, pendingConfirmation = false, resetEmailSent = false) }
             runCatching { auth.signUpWithEmail(email, password) }
                 .onSuccess { signedInNow ->
                     if (signedInNow) {
@@ -86,13 +88,39 @@ class SignInViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Email a password-recovery link. Success here only means "Supabase accepted
+     * the request" — it deliberately does not reveal whether the address has an
+     * account, so the UI says "if that address is registered".
+     */
+    fun sendPasswordReset(email: String) {
+        viewModelScope.launch {
+            if (email.isBlank()) {
+                _state.update { it.copy(error = AuthError.EMPTY_FIELDS) }
+                return@launch
+            }
+            _state.update {
+                it.copy(
+                    busy = true, error = null, errorDetail = null,
+                    pendingConfirmation = false, resetEmailSent = false,
+                )
+            }
+            runCatching { auth.resetPassword(email) }
+                .onSuccess { _state.update { it.copy(busy = false, resetEmailSent = true) } }
+                .onFailure { e ->
+                    Timber.w(e, "password reset request failed")
+                    _state.update { it.copy(busy = false, error = e.toAuthError(), errorDetail = e.shortDetail()) }
+                }
+        }
+    }
+
     fun signInWithGoogle() = launchSignIn { auth.signInWithGoogle() }
 
     fun signInWithApple() = launchSignIn { auth.signInWithApple() }
 
     private fun launchSignIn(block: suspend () -> Unit) {
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, errorDetail = null, pendingConfirmation = false) }
+            _state.update { it.copy(busy = true, error = null, errorDetail = null, pendingConfirmation = false, resetEmailSent = false) }
             runCatching { block() }
                 .onSuccess {
                     registerFcm()

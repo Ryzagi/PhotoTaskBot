@@ -122,6 +122,19 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
             Modifier.fillMaxWidth(), Candy.Mint, enabled = !state.busy,
         )
 
+        // Only in sign-in mode — there is no password to recover while signing up.
+        if (!isSignup) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                t.forgotPassword,
+                fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 12.sp,
+                color = c.inkFaint, textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !state.busy) { viewModel.sendPasswordReset(email) },
+            )
+        }
+
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(2.dp)).background(c.line))
@@ -169,6 +182,10 @@ fun SignInScreen(onSignedIn: () -> Unit, viewModel: SignInViewModel = hiltViewMo
         if (state.pendingConfirmation) {
             Spacer(Modifier.height(14.dp))
             Text(t.checkInbox, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.mintDeep, textAlign = TextAlign.Center)
+        }
+        if (state.resetEmailSent) {
+            Spacer(Modifier.height(14.dp))
+            Text(t.resetEmailSent, fontFamily = Nunito, fontWeight = FontWeight.W700, fontSize = 13.sp, color = c.mintDeep, textAlign = TextAlign.Center)
         }
 
         Spacer(Modifier.height(20.dp))

@@ -15,6 +15,7 @@ import io.github.jan.supabase.createSupabaseClient
 // though the plugin class is now called `Auth` and the extension on the
 // client is `client.auth`.
 import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.FlowType
 import io.github.jan.supabase.gotrue.SessionStatus
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.Apple
@@ -66,6 +67,12 @@ class SupabaseAuth @Inject constructor(
             // below rather than calling isSignedIn() synchronously at startup.
             autoLoadFromStorage = true
             alwaysAutoRefresh = true
+            // Pinned, not defaulted: the password-reset page (backend /auth/reset)
+            // reads the recovery token out of the URL fragment, which is what the
+            // implicit flow produces. PKCE would send a `?code=` whose verifier only
+            // exists on the device that asked — that breaks the common case of
+            // opening the reset email on a laptop.
+            flowType = FlowType.IMPLICIT
         }
     }
 
@@ -94,6 +101,25 @@ class SupabaseAuth @Inject constructor(
             this.email = email
             this.password = password
         }
+    }
+
+    /**
+     * Ask Supabase to email a password-recovery link.
+     *
+     * The link lands on the backend page (`/auth/reset`), not in the app: the user
+     * who needs it often reads mail on another device, where a `com.pandasolve.app://`
+     * link is a dead end. Add this URL to Supabase Auth → URL Configuration →
+     * Redirect URLs, for every API base URL a build can point at.
+     *
+     * Returns normally even for an address that has no account — Supabase does not
+     * distinguish, to avoid leaking which emails are registered. Word the UI as
+     * "if that address is registered".
+     */
+    suspend fun resetPassword(email: String) {
+        client.auth.resetPasswordForEmail(
+            email = email,
+            redirectUrl = BuildConfig.API_BASE_URL.trimEnd('/') + "/auth/reset",
+        )
     }
 
     /**
